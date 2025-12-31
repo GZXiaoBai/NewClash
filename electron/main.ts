@@ -13,6 +13,7 @@ let tray: Tray | null = null
 let kernel: KernelManager | null = null
 let store: StoreManager | null = null
 let ipcHandlersRegistered = false
+let isQuitting = false
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
@@ -21,6 +22,7 @@ const gotTheLock = app.requestSingleInstanceLock()
 
 if (!gotTheLock) {
     // Another instance is running, quit immediately
+    isQuitting = true
     app.quit()
 } else {
     // This is the first instance, register second-instance handler
@@ -207,7 +209,7 @@ function createWindow() {
 
     // Handle window close - show dialog or minimize to tray based on settings
     win.on('close', (event) => {
-        if (!win || !store) return;
+        if (!win || !store || isQuitting) return;
 
         const settings = store.getSettings();
 
@@ -411,6 +413,7 @@ app.on('window-all-closed', () => {
 
 // Ensure kernel is stopped before app quits (critical for Windows cleanup)
 app.on('before-quit', () => {
+    isQuitting = true
     console.log('[Main] App quitting, stopping kernel...')
     kernel?.stop()
 })
