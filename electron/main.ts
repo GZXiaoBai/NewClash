@@ -67,7 +67,8 @@ function registerIpcHandlers() {
             const { profiles, newProfile } = await store.addProfile(url);
             // If it's the first one (active), load it
             if (newProfile.active && kernel) {
-                await kernel.updateConfig(newProfile.localPath);
+                const settings = store.getSettings();
+                await kernel.updateConfig(newProfile.localPath, settings.tunMode);
             }
             return profiles;
         } catch (e) {
@@ -84,7 +85,8 @@ function registerIpcHandlers() {
         if (data.active && kernel) {
             const profile = profiles.find(p => p.id === id);
             if (profile?.localPath) {
-                await kernel.updateConfig(profile.localPath);
+                const settings = store.getSettings();
+                await kernel.updateConfig(profile.localPath, settings.tunMode);
             }
         }
         return profiles;
@@ -100,7 +102,8 @@ function registerIpcHandlers() {
         if (!canceled && filePaths.length > 0 && store) {
             const { profiles, newProfile } = await store.addProfile(filePaths[0])
             if (newProfile.active && kernel) {
-                await kernel.updateConfig(newProfile.localPath)
+                const settings = store.getSettings();
+                await kernel.updateConfig(newProfile.localPath, settings.tunMode)
             }
             return profiles
         }
@@ -121,8 +124,11 @@ function registerIpcHandlers() {
         if (data.tunMode !== undefined && store && kernel) {
             const configPath = await store.regenerateActiveProfile();
             if (configPath) {
-                await kernel.updateConfig(configPath);
-                console.log('[Main] Reloaded kernel with TUN mode:', data.tunMode);
+                // Determine the correct TUN mode state (use the new setting)
+                // If data.tunMode is explicitly set, use it. Otherwise use store value.
+                const tunMode = data.tunMode;
+                await kernel.updateConfig(configPath, tunMode);
+                console.log('[Main] Reloaded kernel with TUN mode:', tunMode);
             }
         }
 
@@ -178,16 +184,17 @@ function createWindow() {
         // Start Kernel WITH active profile config
         const profiles = store.getProfiles()
         const activeProfile = profiles.find(p => p.active)
+        const settings = store.getSettings();
         if (activeProfile?.localPath) {
             console.log('[Main] Starting kernel with active profile:', activeProfile.localPath)
-            kernel.start(activeProfile.localPath)
+            kernel.start(activeProfile.localPath, settings.tunMode)
         } else {
             console.log('[Main] No active profile found, starting kernel without config')
-            kernel.start()
+            kernel.start(undefined, settings.tunMode)
         }
     } else {
         // Kernel exists, just update webContents reference
-        kernel['webContents'] = win.webContents
+        kernel.setWebContents(win.webContents)
     }
 
     // Register IPC handlers (only once)
@@ -253,7 +260,8 @@ function createWindow() {
                     win?.hide();
                 } else {
                     kernel?.stop();
-                    app.quit();
+                    // Force exit to prevent zombie processes, especially after using child_process/sudo
+                    app.exit(0);
                 }
             });
         }
@@ -376,7 +384,7 @@ async function updateTrayMenu() {
                 // TUN requires config regeneration
                 const configPath = await store?.regenerateActiveProfile();
                 if (configPath) {
-                    await kernel?.updateConfig(configPath);
+                    await kernel?.updateConfig(configPath, newValue);
                 }
                 updateTrayMenu();
             }
@@ -397,7 +405,7 @@ async function updateTrayMenu() {
         {
             label: '❌ 退出', click: () => {
                 kernel?.stop();
-                app.quit();
+                app.exit(0);
             }
         }
     ]);

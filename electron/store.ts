@@ -125,19 +125,14 @@ export class StoreManager {
                         // TUN mode requires DNS to be enabled and ideally fake-ip for best performance/compat
                         if (!config['dns']) config['dns'] = {};
 
-                        // Force enable and basic settings if not present or to ensure compatibility
-                        if (!config['dns']['enable']) {
-                            config['dns']['enable'] = true;
-                            dirty = true;
-                        }
-                        if (!config['dns']['enhanced-mode']) {
-                            config['dns']['enhanced-mode'] = 'fake-ip';
-                            dirty = true;
-                        }
-                        if (!config['dns']['listen']) {
-                            config['dns']['listen'] = '0.0.0.0:1053';
-                            dirty = true;
-                        }
+                        // Force enable and basic settings
+                        config['dns']['enable'] = true;
+                        config['dns']['ipv6'] = false; // Disable IPv6 to prevent leaks/issues
+                        config['dns']['enhanced-mode'] = 'fake-ip'; // Force fake-ip for TUN stability
+                        config['dns']['listen'] = '0.0.0.0:1053';
+                        dirty = true;
+
+                        // Ensure at least one nameserver
                         // Ensure at least one nameserver
                         if (!config['dns']['nameserver'] || config['dns']['nameserver'].length === 0) {
                             // CN-Friendly DNS Order:
