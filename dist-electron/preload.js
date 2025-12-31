@@ -1,0 +1,1 @@
+"use strict";const n=require("electron");n.contextBridge.exposeInMainWorld("ipcRenderer",{on(e,r){return n.ipcRenderer.on(e,r),()=>n.ipcRenderer.removeListener(e,r)},off(e,r){n.ipcRenderer.removeListener(e,r)},invoke(e,...r){return n.ipcRenderer.invoke(e,...r)}});
