@@ -42,6 +42,13 @@ export class KernelManager {
 
     // --- Core Lifecycle ---
 
+    // ...
+
+    // (Inside startPolling, lines 155-162 original)
+
+
+    // --- Core Lifecycle ---
+
     async start(configPath?: string, tunMode: boolean = false) {
         if (this.process || (this.isElevated && process.platform === 'win32')) {
             console.log('[Kernel] Already running');
@@ -328,7 +335,9 @@ export class KernelManager {
             try {
                 const res = await axios.get(`http://127.0.0.1:${this.port}/traffic`, { timeout: 1000 });
                 if (res.data) this.sendToRenderer('core:stats', res.data);
-            } catch (e) { }
+            } catch (e) {
+                // Silent fail to avoid log spam, but ensures loop continues
+            }
         }, 1000);
     }
 

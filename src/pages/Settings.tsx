@@ -6,7 +6,7 @@ import { Moon, Sun, Globe, Shield, Monitor } from 'lucide-react'
 function SimpleSwitch({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (c: boolean) => void }) {
     return (
         <button
-            className={`w-11 h-6 rounded-full transition-colors relative ${checked ? 'bg-primary' : 'bg-secondary'}`}
+            className={`w-11 h-6 rounded-full transition-colors relative ${checked ? 'bg-primary' : 'bg-slate-200 dark:bg-slate-700'}`}
             onClick={() => onCheckedChange(!checked)}
         >
             <div className={`w-5 h-5 bg-white rounded-full shadow-sm transition-transform absolute top-0.5 left-0.5 ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
@@ -144,7 +144,7 @@ export default function Settings() {
                 </section>
 
                 <div className="pt-4 text-center">
-                    <span className="text-xs text-muted-foreground opacity-50">NewClash v1.4.1 • Built with ❤️</span>
+                    <span className="text-xs text-muted-foreground opacity-50">NewClash v1.4.2 • Built with ❤️</span>
                 </div>
             </div>
         </motion.div>

@@ -265,7 +265,13 @@ function createWindow() {
                 }
             });
         }
-    })
+    });
+
+    // Clean up window reference explicitly
+    win.on('closed', () => {
+        win = null;
+        kernel?.setWebContents(null);
+    });
 
     // Tray Implementation (only once)
     if (!tray) {
