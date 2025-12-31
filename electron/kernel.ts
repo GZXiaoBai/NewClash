@@ -130,8 +130,8 @@ export class KernelManager {
                     this.sendToRenderer('core:logs', { type: 'info', payload: 'Permissions Granted.', time: new Date().toLocaleTimeString() });
                 } catch (e: any) {
                     console.error('[Kernel] Failed to grant permissions:', e);
-                    this.sendToRenderer('core:logs', { type: 'error', payload: 'Failed to acquire permissions: ' + e.message, time: new Date().toLocaleTimeString() });
-                    return;
+                    this.sendToRenderer('core:logs', { type: 'error', payload: 'Start as User Mode (Admin denied): ' + e.message, time: new Date().toLocaleTimeString() });
+                    // Proceed to spawn as user
                 }
             }
 
@@ -208,10 +208,10 @@ export class KernelManager {
     private async grantSetUidPermissions(binPath: string): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             if (process.platform === 'darwin') {
-                // chown root:admin AND chmod 4755 (SetUID + rwxr-xr-x)
-                const script = `do shell script "chown root:admin \\\\"${binPath}\\\\" && chmod 4755 \\\\"${binPath}\\\\"" with administrator privileges`;
-                const { exec } = require('child_process');
-                exec(`osascript -e '${script}'`, (error: any) => {
+                // Use execFile to avoid shell escaping issues
+                const script = `do shell script "chown root:admin \\"${binPath}\\" && chmod 4755 \\"${binPath}\\"" with administrator privileges`;
+                const { execFile } = require('child_process');
+                execFile('osascript', ['-e', script], (error: any) => {
                     if (error) reject(error);
                     else resolve();
                 });
