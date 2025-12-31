@@ -2,7 +2,8 @@ name: Build and Release
 
 on:
   push:
-    branches: [ main ]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -63,9 +64,54 @@ jobs:
           name: Windows-Build
           path: dist/*.exe
 
-  # Android Build Note
-  # Electron does not support Android compilation.
-  # This job serves as a notification of that limitation in the pipeline.
+  release:
+    needs: [build-mac, build-win]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download macOS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macOS-Build
+          path: release/macos
+
+      - name: Download Windows Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: Windows-Build
+          path: release/windows
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release/macos/*.dmg
+            release/windows/*.exe
+          body: |
+            ## NewClash Premium Core 更新日志 🎉
+            
+            **本次更新包含以下主要内容：**
+            
+            ### 🎨 界面与交互 (UI/UX)
+            - **极光视觉升级**: 全新的深色毛玻璃主题，搭配动态极光背景与霓虹光效。
+            - **智能仪表盘**: 重绘了状态卡片与流量波形图，支持实时色彩反馈。
+            - **侧边栏优化**: 新增模式切换组件，支持规则、全局、直连三种模式的快速切换。
+            
+            ### 🚀 功能增强 (Features)
+            - **系统代理接管**: 完美支持 macOS 系统代理设置。
+            - **TUN 模式**: 内置 TUN 模式开关（需管理员权限）。
+            - **连接管理**: 支持实时查看、筛选并断开活动连接。
+            
+            ### 🛠 修复与优化 (Fixes)
+            - 修复了代理列表渲染卡顿问题。
+            - 优化了内核启动与端口清理逻辑。
+            
+            ---
+            *此版本由 GitHub Actions 自动构建发布。*
+            *下载 Windows 版本请选择 .exe，macOS 版本请选择 .dmg*
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          prerelease: false
+
   check-android:
     runs-on: ubuntu-latest
     steps:
