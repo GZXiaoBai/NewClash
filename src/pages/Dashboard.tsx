@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Zap, Activity } from 'lucide-react'
+import { ArrowDown, ArrowUp, Zap, Activity, Cpu } from 'lucide-react'
 import { useEffect, useState, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
@@ -48,13 +48,19 @@ function formatTotal(bytes: number) {
     return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`
 }
 
+function formatMemory(bytes: number) {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
 export default function Dashboard() {
     const [stats, setStats] = useState({ up: 0, down: 0 })
     const [total, setTotal] = useState({ up: 0, down: 0 })
+    const [memory, setMemory] = useState(0)
     const [history, setHistory] = useState<{ up: number, down: number }[]>(Array(60).fill({ up: 0, down: 0 }))
 
     useEffect(() => {
-        const cleanup = window.ipcRenderer.on('core:stats', (_event, data) => {
+        const cleanupStats = window.ipcRenderer.on('core:stats', (_event, data) => {
             setStats(data)
             setTotal(prev => ({
                 up: prev.up + data.up,
@@ -66,7 +72,16 @@ export default function Dashboard() {
             })
         })
 
-        return cleanup
+        const cleanupMemory = window.ipcRenderer.on('core:memory', (_event, data) => {
+            if (data && typeof data.inuse === 'number') {
+                setMemory(data.inuse)
+            }
+        })
+
+        return () => {
+            cleanupStats()
+            cleanupMemory()
+        }
     }, [])
 
     // Generate SVG path for graph
@@ -110,7 +125,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                     <StatusCard
                         index={0}
                         title="实时下载"
@@ -142,6 +157,14 @@ export default function Dashboard() {
                         subValue="Total Traffic"
                         icon={Zap}
                         colorClass="text-orange-400"
+                    />
+                    <StatusCard
+                        index={4}
+                        title="内存占用"
+                        value={formatMemory(memory)}
+                        subValue="Kernel Memory"
+                        icon={Cpu}
+                        colorClass="text-pink-400"
                     />
                 </div>
 
