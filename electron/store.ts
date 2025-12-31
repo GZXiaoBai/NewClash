@@ -95,14 +95,6 @@ export class StoreManager {
                     let dirty = false;
                     const settings = this.getSettings();
 
-                    // Always enforce our standard controller port so the UI can connect
-                    config['external-controller'] = '127.0.0.1:9092';
-                    dirty = true;
-
-                    if (!config['mixed-port'] && !config['port']) {
-                        config['mixed-port'] = settings.mixedPort || 7892;
-                        dirty = true;
-                    }
                     if (config['allow-lan'] === undefined) {
                         config['allow-lan'] = settings.allowLan;
                         dirty = true;
@@ -310,10 +302,6 @@ export class StoreManager {
             const config: any = yaml.load(content) || {};
 
             // Inject standard settings
-            config['external-controller'] = '127.0.0.1:9092';
-            if (!config['mixed-port'] && !config['port']) {
-                config['mixed-port'] = settings.mixedPort || 7892;
-            }
             if (config['allow-lan'] === undefined) {
                 config['allow-lan'] = settings.allowLan;
             }
