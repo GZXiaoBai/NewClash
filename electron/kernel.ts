@@ -118,6 +118,22 @@ export class KernelManager {
 
         const args = ['-d', cwd, '-f', this.configFile, ctlParam, this.ipcPath];
 
+        // 5.5 Config Pre-Check (Clash Party Style)
+        if (fs.existsSync(this.configFile)) {
+            const checkResult = await this.checkProfile(targetBinPath, this.configFile);
+            if (!checkResult.valid) {
+                console.error('[Kernel] Config check failed:', checkResult.error);
+                this.sendToRenderer('core:logs', {
+                    type: 'error',
+                    payload: `Config Error: ${checkResult.error}`,
+                    time: new Date().toLocaleTimeString()
+                });
+                // Don't return - try to start anyway, but user is warned
+            } else {
+                console.log('[Kernel] Config check passed');
+            }
+        }
+
         // 6. Permission Check & Spawn
         if (process.platform === 'darwin' || process.platform === 'linux') {
             // Check SetUID permissions
@@ -222,6 +238,36 @@ export class KernelManager {
         });
     }
 
+    // Config Pre-Check (Clash Party Style)
+    private async checkProfile(binPath: string, configPath: string): Promise<{ valid: boolean; error?: string }> {
+        return new Promise((resolve) => {
+            const { execFile } = require('child_process');
+            const testDir = path.join(app.getPath('temp'), 'newclash-test');
+
+            if (!fs.existsSync(testDir)) {
+                try { fs.mkdirSync(testDir, { recursive: true }); } catch (e) { }
+            }
+
+            execFile(binPath, ['-t', '-f', configPath, '-d', testDir], { timeout: 10000 }, (error: any, stdout: string, stderr: string) => {
+                if (error) {
+                    // Parse error message from stdout/stderr
+                    const output = stdout + stderr;
+                    const errorLines = output.split('\n')
+                        .filter(line => line.includes('error') || line.includes('Error'))
+                        .map(line => line.trim())
+                        .slice(0, 3);
+
+                    resolve({
+                        valid: false,
+                        error: errorLines.length > 0 ? errorLines.join('; ') : 'Unknown config error'
+                    });
+                } else {
+                    resolve({ valid: true });
+                }
+            });
+        });
+    }
+
     private startProcess(binPath: string, args: string[]) {
         console.log(`[Kernel] Spawning: ${binPath} ${args.join(' ')}`);
         try { fs.writeFileSync(this.logFile, ''); } catch (e) { }
@@ -267,10 +313,8 @@ export class KernelManager {
     }
 
     async stop() {
-        if (this.trafficWs) {
-            try { this.trafficWs.terminate(); } catch (e) { }
-            this.trafficWs = null;
-        }
+        // Stop all WebSockets first
+        this.stopAllWebSockets();
 
         if (this.process) {
             console.log('[Kernel] Killing child process...');
@@ -305,42 +349,159 @@ export class KernelManager {
         } catch (e) { }
     }
 
-    // --- API Methods ---
+    // --- WebSocket Streams (Clash Party Style) ---
+    private trafficWs: WebSocket | null = null;
+    private memoryWs: WebSocket | null = null;
+    private connectionsWs: WebSocket | null = null;
 
-    private trafficWs: any = null;
+    private trafficRetry = 10;
+    private memoryRetry = 10;
+    private connectionsRetry = 10;
+    private readonly MAX_RETRY = 10;
 
-    private async startPolling() {
-        // Use WebSocket for real-time traffic (Clash Party Style)
-        const WebSocket = require('ws');
+    private stopAllWebSockets() {
+        this.trafficRetry = 0;
+        this.memoryRetry = 0;
+        this.connectionsRetry = 0;
+
+        [this.trafficWs, this.memoryWs, this.connectionsWs].forEach(ws => {
+            if (ws) {
+                try {
+                    ws.removeAllListeners();
+                    if (ws.readyState === WebSocket.OPEN) ws.close();
+                } catch (e) { }
+            }
+        });
+
+        this.trafficWs = null;
+        this.memoryWs = null;
+        this.connectionsWs = null;
+    }
+
+    private startAllWebSockets() {
+        this.trafficRetry = this.MAX_RETRY;
+        this.memoryRetry = this.MAX_RETRY;
+        this.connectionsRetry = this.MAX_RETRY;
+
+        this.startTrafficWs();
+        this.startMemoryWs();
+        this.startConnectionsWs();
+    }
+
+    private startTrafficWs() {
         const wsUrl = process.platform === 'win32'
-            ? `ws://127.0.0.1:9092/traffic` // Windows fallback or pipe handling todo
+            ? `ws://127.0.0.1:9092/traffic`
             : `ws+unix:${this.ipcPath}:/traffic`;
 
         console.log('[Kernel] Connecting to Traffic WS:', wsUrl);
 
-        if (this.trafficWs) {
-            try { this.trafficWs.terminate(); } catch (e) { }
-        }
-
         try {
             this.trafficWs = new WebSocket(wsUrl);
-            this.trafficWs.on('message', (data: any) => {
+
+            this.trafficWs.on('open', () => {
+                console.log('[Kernel] Traffic WS Connected');
+                this.trafficRetry = this.MAX_RETRY; // Reset on success
+            });
+
+            this.trafficWs.on('message', (data: Buffer) => {
                 try {
                     const parsed = JSON.parse(data.toString());
                     this.sendToRenderer('core:stats', parsed);
                 } catch (e) { }
             });
-            this.trafficWs.on('error', (e: any) => {
-                // console.error('[Kernel] Traffic WS Error:', e.message);
+
+            this.trafficWs.on('error', (e: Error) => {
+                console.error('[Kernel] Traffic WS Error:', e.message);
             });
+
             this.trafficWs.on('close', () => {
-                // Reconnect?
-                setTimeout(() => this.startPolling(), 2000);
+                if (this.trafficRetry > 0) {
+                    this.trafficRetry--;
+                    setTimeout(() => this.startTrafficWs(), 1000);
+                }
             });
         } catch (e) {
-            console.error('[Kernel] Failed to create WS:', e);
-            setTimeout(() => this.startPolling(), 2000);
+            console.error('[Kernel] Failed to create Traffic WS:', e);
+            if (this.trafficRetry > 0) {
+                this.trafficRetry--;
+                setTimeout(() => this.startTrafficWs(), 2000);
+            }
         }
+    }
+
+    private startMemoryWs() {
+        const wsUrl = process.platform === 'win32'
+            ? `ws://127.0.0.1:9092/memory`
+            : `ws+unix:${this.ipcPath}:/memory`;
+
+        try {
+            this.memoryWs = new WebSocket(wsUrl);
+
+            this.memoryWs.on('open', () => {
+                this.memoryRetry = this.MAX_RETRY;
+            });
+
+            this.memoryWs.on('message', (data: Buffer) => {
+                try {
+                    const parsed = JSON.parse(data.toString());
+                    this.sendToRenderer('core:memory', parsed);
+                } catch (e) { }
+            });
+
+            this.memoryWs.on('error', () => { });
+
+            this.memoryWs.on('close', () => {
+                if (this.memoryRetry > 0) {
+                    this.memoryRetry--;
+                    setTimeout(() => this.startMemoryWs(), 1000);
+                }
+            });
+        } catch (e) {
+            if (this.memoryRetry > 0) {
+                this.memoryRetry--;
+                setTimeout(() => this.startMemoryWs(), 2000);
+            }
+        }
+    }
+
+    private startConnectionsWs() {
+        const wsUrl = process.platform === 'win32'
+            ? `ws://127.0.0.1:9092/connections`
+            : `ws+unix:${this.ipcPath}:/connections`;
+
+        try {
+            this.connectionsWs = new WebSocket(wsUrl);
+
+            this.connectionsWs.on('open', () => {
+                this.connectionsRetry = this.MAX_RETRY;
+            });
+
+            this.connectionsWs.on('message', (data: Buffer) => {
+                try {
+                    const parsed = JSON.parse(data.toString());
+                    this.sendToRenderer('core:connections', parsed);
+                } catch (e) { }
+            });
+
+            this.connectionsWs.on('error', () => { });
+
+            this.connectionsWs.on('close', () => {
+                if (this.connectionsRetry > 0) {
+                    this.connectionsRetry--;
+                    setTimeout(() => this.startConnectionsWs(), 1000);
+                }
+            });
+        } catch (e) {
+            if (this.connectionsRetry > 0) {
+                this.connectionsRetry--;
+                setTimeout(() => this.startConnectionsWs(), 2000);
+            }
+        }
+    }
+
+    // Keep old method name for compatibility
+    private async startPolling() {
+        this.startAllWebSockets();
     }
 
     async getVersion() {
