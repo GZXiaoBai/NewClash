@@ -34,8 +34,8 @@ function Layout() {
 
             <Sidebar />
             <div className="flex-1 h-full relative z-10">
-                {/* Drag Region for Titlebar */}
-                <div className="absolute top-0 left-0 right-0 h-10 drag-region z-50 hover:bg-white/5 transition-colors" />
+                {/* Drag Region for Titlebar - allows window to be dragged */}
+                <div className="absolute top-0 left-0 right-0 h-10 drag z-50" />
                 <div className="h-full pt-6">
                     <Routes>
                         <Route path="/" element={<Dashboard />} />

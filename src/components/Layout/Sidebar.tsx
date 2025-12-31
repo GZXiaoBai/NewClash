@@ -10,8 +10,8 @@ export function Sidebar() {
     useEffect(() => {
         window.ipcRenderer.invoke('mode:get').then(setModeState)
 
-        // Fetch kernel version with retry (kernel may take time to start)
-        const fetchVersion = async (retries = 5) => {
+        // Fetch kernel version with retry (kernel may take time to start, especially on Windows)
+        const fetchVersion = async (retries = 10) => {
             try {
                 const data = await window.ipcRenderer.invoke('kernel:version')
                 if (data?.version && data.version !== 'unknown') {
