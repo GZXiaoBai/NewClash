@@ -164,7 +164,7 @@ export default function Settings() {
                 </section>
 
                 <div className="pt-4 text-center">
-                    <span className="text-xs text-muted-foreground opacity-50">NewClash v1.6.0 • Built with ❤️</span>
+                    <span className="text-xs text-muted-foreground opacity-50">NewClash v2.0.0 • Built with ❤️</span>
                 </div>
             </div>
         </motion.div>

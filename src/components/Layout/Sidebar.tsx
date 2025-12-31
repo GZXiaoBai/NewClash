@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
-import { Activity, Globe, Settings, LayoutDashboard, FileCode, ScrollText, Zap } from 'lucide-react'
+import { Activity, Globe, Settings, LayoutDashboard, FileCode, ScrollText, Zap, Cpu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function Sidebar() {
@@ -43,6 +43,7 @@ export function Sidebar() {
         { icon: FileCode, label: '配置', path: '/profiles' },
         { icon: ScrollText, label: '日志', path: '/logs' },
         { icon: Activity, label: '连接', path: '/connections' },
+        { icon: Cpu, label: '内核', path: '/core' },
         { icon: Settings, label: '设置', path: '/settings' },
     ]
 

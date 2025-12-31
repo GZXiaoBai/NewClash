@@ -6,6 +6,7 @@ import Profiles from './pages/Profiles'
 import Logs from './pages/Logs'
 import Connections from './pages/Connections'
 import Settings from './pages/Settings'
+import CoreManager from './pages/CoreManager'
 import { useEffect } from 'react'
 
 function Layout() {
@@ -44,6 +45,7 @@ function Layout() {
                         <Route path="/logs" element={<Logs />} />
                         <Route path="/connections" element={<Connections />} />
                         <Route path="/settings" element={<Settings />} />
+                        <Route path="/core" element={<CoreManager />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                 </div>

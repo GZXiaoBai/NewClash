@@ -4,6 +4,7 @@ import { KernelManager } from './kernel'
 import { StoreManager } from './store'
 import { setSystemProxy } from './system'
 import { checkAutoRun, enableAutoRun, disableAutoRun } from './autoRun'
+import { getCurrentCoreVersion, getAvailableVersions, installCoreVersion, checkForUpdate } from './coreUpdater'
 
 // The built directory structure
 process.env.DIST = path.join(__dirname, '../dist')
@@ -146,6 +147,43 @@ function registerIpcHandlers() {
         } catch (e: any) {
             return { success: false, error: e.message };
         }
+    })
+
+    // Core Version Management (Phase 3)
+    ipcMain.handle('core:version', async () => {
+        return await getCurrentCoreVersion();
+    })
+
+    ipcMain.handle('core:versions', async () => {
+        try {
+            return await getAvailableVersions();
+        } catch (e: any) {
+            return [];
+        }
+    })
+
+    ipcMain.handle('core:install', async (_, version: string) => {
+        // Stop kernel before installing
+        if (kernel) {
+            await kernel.stop();
+        }
+
+        const result = await installCoreVersion(version);
+
+        // Restart kernel if installation successful
+        if (result.success && store && kernel) {
+            const activeProfile = store.getProfiles().find(p => p.active);
+            if (activeProfile) {
+                const settings = store.getSettings();
+                await kernel.start(activeProfile.localPath, settings.tunMode);
+            }
+        }
+
+        return result;
+    })
+
+    ipcMain.handle('core:checkUpdate', async () => {
+        return await checkForUpdate();
     })
 
     ipcMain.handle('settings:set', async (_, data) => {
