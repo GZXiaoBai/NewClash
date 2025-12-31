@@ -70,31 +70,35 @@ export class StoreManager {
         const id = Math.random().toString(36).substring(7);
         const name = url.startsWith('http') ? `Subscription ${profiles.length + 1}` : 'Local Config';
         let localPath = '';
+        let userInfo: { upload: number; download: number; total: number; expire: number; } | undefined = undefined;
 
         if (url.startsWith('http')) {
             try {
-                // Download content
-                const response = await fetch(url, {
-                    headers: { 'User-Agent': 'ClashMeta/1.18.0' } // fake UA to ensure we get yaml
+                // Download content using Axios
+                const axios = (await import('axios')).default;
+                const response = await axios.get(url, {
+                    headers: { 'User-Agent': 'ClashMeta/1.18.0' },
+                    timeout: 15000,
+                    responseType: 'text' // Ensure we get text/string
                 });
-                if (!response.ok) throw new Error('Network response was not ok');
 
-                // Parse Subscription Info
-                const subInfoStr = response.headers.get('subscription-userinfo');
-                let userInfo = undefined;
+                // Parse Subscription Info (Axios headers are lower-cased)
+                const subInfoStr = response.headers['subscription-userinfo'];
                 if (subInfoStr) {
                     try {
-                        const parts = subInfoStr.split(';');
+                        const parts = Array.isArray(subInfoStr) ? subInfoStr[0].split(';') : subInfoStr.split(';');
                         const info: any = {};
-                        parts.forEach(p => {
+                        parts.forEach((p: string) => {
                             const [k, v] = p.trim().split('=');
                             if (k && v) info[k] = parseInt(v, 10);
                         });
                         userInfo = info;
-                    } catch (e) { }
+                    } catch (e) {
+                        console.error('[Store] Failed to parse sub info:', e);
+                    }
                 }
 
-                let content = await response.text();
+                let content = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
 
                 // Try to parse YAML
                 let config: any = null;
