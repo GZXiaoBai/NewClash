@@ -5,9 +5,31 @@ import { cn } from '@/lib/utils'
 
 export function Sidebar() {
     const [mode, setModeState] = useState('rule')
+    const [kernelVersion, setKernelVersion] = useState('...')
 
     useEffect(() => {
         window.ipcRenderer.invoke('mode:get').then(setModeState)
+
+        // Fetch kernel version with retry (kernel may take time to start)
+        const fetchVersion = async (retries = 5) => {
+            try {
+                const data = await window.ipcRenderer.invoke('kernel:version')
+                if (data?.version && data.version !== 'unknown') {
+                    // Version from API already includes 'v' prefix
+                    setKernelVersion(data.version)
+                } else if (retries > 0) {
+                    // Retry after delay
+                    setTimeout(() => fetchVersion(retries - 1), 1000)
+                }
+            } catch (e) {
+                if (retries > 0) {
+                    setTimeout(() => fetchVersion(retries - 1), 1000)
+                }
+            }
+        }
+
+        // Delay initial fetch to allow kernel to start
+        setTimeout(() => fetchVersion(), 500)
     }, [])
 
     const setMode = async (m: string) => {
@@ -127,7 +149,7 @@ export function Sidebar() {
                         </div>
                         <div className="flex justify-between items-end">
                             <div className="text-[10px] text-muted-foreground/60 font-mono">
-                                v1.18.0
+                                {kernelVersion}
                             </div>
                             <div className="text-[10px] text-muted-foreground/60 font-mono uppercase">
                                 Mihomo

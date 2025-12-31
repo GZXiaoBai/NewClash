@@ -286,4 +286,73 @@ export class StoreManager {
         this.store.set('settings', newSettings);
         return newSettings;
     }
+
+    // Regenerate the active profile's config file with current settings (TUN, ports, etc)
+    async regenerateActiveProfile(): Promise<string | null> {
+        const profiles = this.getProfiles();
+        const activeProfile = profiles.find(p => p.active);
+        if (!activeProfile) return null;
+
+        const settings = this.getSettings();
+
+        try {
+            // Read original content
+            let content: string;
+            if (activeProfile.url.startsWith('http')) {
+                // Re-download from URL
+                const axios = (await import('axios')).default;
+                const resp = await axios.get(activeProfile.url, { timeout: 30000 });
+                content = typeof resp.data === 'string' ? resp.data : yaml.dump(resp.data);
+            } else {
+                // Read from original local path or cached
+                content = fs.readFileSync(activeProfile.localPath, 'utf-8');
+            }
+
+            const config: any = yaml.load(content) || {};
+
+            // Inject standard settings
+            config['external-controller'] = '127.0.0.1:9090';
+            if (!config['mixed-port'] && !config['port']) {
+                config['mixed-port'] = settings.mixedPort || 7890;
+            }
+            if (config['allow-lan'] === undefined) {
+                config['allow-lan'] = settings.allowLan;
+            }
+
+            // TUN Mode handling
+            if (settings.tunMode) {
+                config['tun'] = {
+                    enable: true,
+                    stack: 'system',
+                    'auto-route': true,
+                    'auto-detect-interface': true,
+                    'dns-hijack': ['any:53']
+                };
+
+                // Ensure DNS config for TUN
+                if (!config['dns']) config['dns'] = {};
+                config['dns']['enable'] = true;
+                config['dns']['enhanced-mode'] = 'fake-ip';
+                config['dns']['listen'] = '0.0.0.0:1053';
+                config['dns']['fake-ip-range'] = '198.18.0.1/16';
+                if (!config['dns']['nameserver'] || config['dns']['nameserver'].length === 0) {
+                    config['dns']['nameserver'] = ['223.5.5.5', '114.114.114.114', '8.8.8.8', '1.1.1.1'];
+                    config['dns']['fallback'] = ['8.8.8.8', '1.1.1.1', 'tls://1.1.1.1:853'];
+                }
+            } else {
+                // Remove TUN config when disabled
+                delete config['tun'];
+            }
+
+            // Write updated config
+            const newContent = yaml.dump(config);
+            fs.writeFileSync(activeProfile.localPath, newContent);
+            console.log('[Store] Regenerated active profile with TUN:', settings.tunMode);
+
+            return activeProfile.localPath;
+        } catch (e) {
+            console.error('[Store] Failed to regenerate profile:', e);
+            return null;
+        }
+    }
 }

@@ -12,53 +12,19 @@ let win: BrowserWindow | null
 let tray: Tray | null = null
 let kernel: KernelManager | null = null
 let store: StoreManager | null = null
+let ipcHandlersRegistered = false
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
-function createWindow() {
-    win = new BrowserWindow({
-        icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
-        webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
-            nodeIntegration: false,
-            contextIsolation: true,
-        },
-        titleBarStyle: 'hidden',
-        titleBarOverlay: {
-            color: '#00000000',
-            symbolColor: '#ffffff',
-            height: 30
-        },
-        width: 1000,
-        height: 700,
-        minWidth: 800,
-        minHeight: 600,
-        backgroundColor: '#09090b',
-        show: false
-    })
-
-    // Initialize Core Components
-    kernel = new KernelManager(win.webContents)
-    store = new StoreManager()
-
-    // Start Kernel WITH active profile config (CRITICAL FIX)
-    // Without a config, the kernel has no proxies/rules and cannot route traffic!
-    const profiles = store.getProfiles()
-    const activeProfile = profiles.find(p => p.active)
-    if (activeProfile?.localPath) {
-        console.log('[Main] Starting kernel with active profile:', activeProfile.localPath)
-        kernel.start(activeProfile.localPath)
-    } else {
-        console.log('[Main] No active profile found, starting kernel without config')
-        kernel.start()
-    }
-
-    // --- IPC Handlers ---
+function registerIpcHandlers() {
+    if (ipcHandlersRegistered) return;
+    ipcHandlersRegistered = true;
 
     // App
     ipcMain.handle('app:version', () => app.getVersion())
 
     // Kernel - Real Data
+    ipcMain.handle('kernel:version', () => kernel?.getVersion())
     ipcMain.handle('proxy:list', () => kernel?.getProxies())
     ipcMain.handle('proxy:select', (_, { group, name }) => kernel?.setProxy(group, name))
     ipcMain.handle('proxy:url-test', (_, { group, name }) => kernel?.getProxyDelay(group, name))
@@ -131,28 +97,67 @@ function createWindow() {
             setSystemProxy(data.systemProxy, newSettings?.mixedPort || 7890);
         }
 
-        if (data.tunMode !== undefined) {
-            // If TUN changed, we might need to reload the current profile to inject/remove TUN config
-            // For now, let's just trigger a reload if there is an active profile
-            const profiles = store?.getProfiles();
-            const active = profiles?.find(p => p.active);
-            if (active) {
-                // re-generate config logic is in StoreManager.addProfile mostly, but updateConfig sends the file.
-                // We need to re-read the ORIGINAL file (or remote), re-process it with new settings, and save to localPath.
-                // This is complex. 
-                // Simple version: Just tell user to restart or re-select profile.
-                // Better: We can tell kernel to restart, but kernel needs valid config.
-                // Let's implement 'reconfigure' in Store?
-                // For this step, we'll notify renderer to potentially show "Restart needed" or similar?
-                // Or we can rely on the fact that 'updateSettings' just updates the store, and 'active' stays same.
-                // We need to force re-write of the config file.
+        // TUN Mode: regenerate config and reload kernel
+        if (data.tunMode !== undefined && store && kernel) {
+            const configPath = await store.regenerateActiveProfile();
+            if (configPath) {
+                await kernel.updateConfig(configPath);
+                console.log('[Main] Reloaded kernel with TUN mode:', data.tunMode);
             }
         }
 
         return newSettings;
     })
+}
 
-    // Listen for renderer ready to sync initial state if needed
+function createWindow() {
+    win = new BrowserWindow({
+        icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            nodeIntegration: false,
+            contextIsolation: true,
+        },
+        titleBarStyle: 'hidden',
+        titleBarOverlay: {
+            color: '#00000000',
+            symbolColor: '#ffffff',
+            height: 30
+        },
+        width: 1000,
+        height: 700,
+        minWidth: 800,
+        minHeight: 600,
+        backgroundColor: '#09090b',
+        show: false
+    })
+
+    // Initialize Core Components (only once)
+    if (!store) {
+        store = new StoreManager()
+    }
+    if (!kernel) {
+        kernel = new KernelManager(win.webContents)
+
+        // Start Kernel WITH active profile config
+        const profiles = store.getProfiles()
+        const activeProfile = profiles.find(p => p.active)
+        if (activeProfile?.localPath) {
+            console.log('[Main] Starting kernel with active profile:', activeProfile.localPath)
+            kernel.start(activeProfile.localPath)
+        } else {
+            console.log('[Main] No active profile found, starting kernel without config')
+            kernel.start()
+        }
+    } else {
+        // Kernel exists, just update webContents reference
+        kernel['webContents'] = win.webContents
+    }
+
+    // Register IPC handlers (only once)
+    registerIpcHandlers();
+
+    // Listen for renderer ready
     win.webContents.on('did-finish-load', () => {
         win?.webContents.send('main-process-message', (new Date).toLocaleString())
     })
@@ -167,34 +172,31 @@ function createWindow() {
         win?.show()
     })
 
-    // Tray Implementation
-    const iconPath = path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'); // Use generic icon for now or dedicated tray icon
-    // For macOS tray, it's best to use a template image (files ending in Template.png) for auto light/dark mode
-    // But we'll stick to the existing icon for simplicity first
-    const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+    // Tray Implementation (only once)
+    if (!tray) {
+        const iconPath = path.join(process.env.VITE_PUBLIC, 'electron-vite.svg');
+        const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
 
-    tray = new Tray(icon);
-    const contextMenu = Menu.buildFromTemplate([
-        { label: 'Show App', click: () => win?.show() },
-        { type: 'separator' },
-        {
-            label: 'Quit', click: () => {
-                app.quit();
-                kernel?.stop();
+        tray = new Tray(icon);
+        const contextMenu = Menu.buildFromTemplate([
+            { label: 'Show App', click: () => win?.show() },
+            { type: 'separator' },
+            {
+                label: 'Quit', click: () => {
+                    kernel?.stop();
+                    app.quit();
+                }
             }
-        }
-    ]);
-    tray.setToolTip('NewClash');
-    tray.setContextMenu(contextMenu);
-
-    // On macOS, clicking the tray icon usually just opens the menu, but we can double click or change behavior?
-    // Actually standard macOS behavior for Tray (Status Item) is just menu.
+        ]);
+        tray.setToolTip('NewClash');
+        tray.setContextMenu(contextMenu);
+    }
 }
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
-        app.quit()
         kernel?.stop()
+        app.quit()
     }
 })
 

@@ -45,8 +45,7 @@ export class KernelManager {
             }
         }
 
-        // Copy if missing or different size (simple check)
-        // For robustness, we should probably always copy on update, but size check is a quick heuristic
+        // Copy if missing, different size, or source is newer
         let shouldCopy = false;
         if (!fs.existsSync(targetPath)) {
             shouldCopy = true;
@@ -54,7 +53,11 @@ export class KernelManager {
             try {
                 const srcStat = fs.statSync(sourcePath);
                 const tgtStat = fs.statSync(targetPath);
-                if (srcStat.size !== tgtStat.size) shouldCopy = true;
+                // Copy if size differs OR source is newer
+                if (srcStat.size !== tgtStat.size || srcStat.mtime > tgtStat.mtime) {
+                    shouldCopy = true;
+                    console.log(`[Kernel] Binary update needed: size ${srcStat.size} vs ${tgtStat.size}, mtime ${srcStat.mtime} vs ${tgtStat.mtime}`);
+                }
             } catch (e) {
                 shouldCopy = true;
             }
@@ -194,6 +197,16 @@ export class KernelManager {
         // Poll Logs (Websocket is better but polling for simplicity first or use WS)
         // Actually, standard Clash provides a WS for logs at /logs
         // Implementing WS connection here is overkill for this step, let's stick to process stdout for logs
+    }
+
+    async getVersion() {
+        try {
+            const res = await axios.get(`http://127.0.0.1:${this.port}/version`);
+            return res.data; // { version: "1.19.18", premium: false, meta: true }
+        } catch (e) {
+            console.error('Failed to get version', e.message);
+            return { version: 'unknown' };
+        }
     }
 
     async getProxies() {
