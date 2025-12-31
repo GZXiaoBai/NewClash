@@ -52,6 +52,14 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Download Clash Binary (Windows)
+        run: |
+          mkdir -p bin
+          curl -L -o clash.zip https://github.com/Dreamacro/clash/releases/download/v1.18.0/clash-windows-amd64-v1.18.0.zip
+          unzip clash.zip -d bin
+          mv bin/clash-windows-amd64-v1.18.0.exe bin/clash.exe
+          rm clash.zip
+
       - name: Build Windows
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
