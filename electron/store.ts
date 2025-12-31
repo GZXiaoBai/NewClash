@@ -136,7 +136,22 @@ export class StoreManager {
                         }
                         // Ensure at least one nameserver
                         if (!config['dns']['nameserver'] || config['dns']['nameserver'].length === 0) {
-                            config['dns']['nameserver'] = ['8.8.8.8', '1.1.1.1', 'https://dns.google/dns-query'];
+                            // CN-Friendly DNS Order:
+                            // 1. Domestic (AliDNS/114) for bootstrapping and non-proxy domains
+                            // 2. Foreign (Google/Cloudflare) as fallback
+                            config['dns']['nameserver'] = [
+                                '223.5.5.5',        // AliDNS
+                                '114.114.114.114',  // 114DNS
+                                '8.8.8.8',
+                                '1.1.1.1'
+                            ];
+                            // Also set fallback if not present (optional, but good for Clash)
+                            config['dns']['fallback'] = [
+                                '8.8.8.8',
+                                '1.1.1.1',
+                                'tls://1.1.1.1:853',
+                                'tls://8.8.8.8:853'
+                            ];
                             dirty = true;
                         }
 

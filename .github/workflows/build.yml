@@ -53,13 +53,13 @@ jobs:
         run: npm install
 
       - name: Download Clash Binary (Windows)
-        shell: bash
+        shell: pwsh
         run: |
-          mkdir -p bin
-          curl -L -o clash.zip https://github.com/Dreamacro/clash/releases/download/v1.18.0/clash-windows-amd64-v1.18.0.zip
-          unzip clash.zip -d bin
-          mv bin/clash-windows-amd64-v1.18.0.exe bin/clash.exe
-          rm clash.zip
+          New-Item -ItemType Directory -Force -Path bin
+          Invoke-WebRequest -Uri "https://github.com/Dreamacro/clash/releases/download/v1.18.0/clash-windows-amd64-v1.18.0.zip" -OutFile "clash.zip"
+          Expand-Archive -Path "clash.zip" -DestinationPath "bin" -Force
+          Move-Item -Path "bin/clash-windows-amd64-v1.18.0.exe" -Destination "bin/clash.exe" -Force
+          Remove-Item "clash.zip"
 
       - name: Build Windows
         env:
