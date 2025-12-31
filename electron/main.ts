@@ -3,6 +3,7 @@ import path from 'node:path'
 import { KernelManager } from './kernel'
 import { StoreManager } from './store'
 import { setSystemProxy } from './system'
+import { checkAutoRun, enableAutoRun, disableAutoRun } from './autoRun'
 
 // The built directory structure
 process.env.DIST = path.join(__dirname, '../dist')
@@ -94,6 +95,22 @@ function registerIpcHandlers() {
 
     ipcMain.handle('profile:delete', (_, id) => store?.deleteProfile(id))
 
+    // Refresh a single profile (re-download)
+    ipcMain.handle('profile:refresh', async (_, id: string) => {
+        if (!store) return { success: false, error: 'Store not initialized' };
+        const result = await store.refreshProfile(id);
+        if (result.success) {
+            // If it's the active profile, reload kernel
+            const profiles = store.getProfiles();
+            const profile = profiles.find(p => p.id === id);
+            if (profile?.active && kernel) {
+                const settings = store.getSettings();
+                await kernel.updateConfig(profile.localPath, settings.tunMode);
+            }
+        }
+        return result;
+    })
+
     ipcMain.handle('profile:import-file', async () => {
         const { canceled, filePaths } = await dialog.showOpenDialog(win!, {
             properties: ['openFile'],
@@ -112,6 +129,25 @@ function registerIpcHandlers() {
 
     // Settings
     ipcMain.handle('settings:get', () => store?.getSettings())
+
+    // AutoStart (Phase 2)
+    ipcMain.handle('autostart:check', async () => {
+        return await checkAutoRun();
+    })
+
+    ipcMain.handle('autostart:set', async (_, enable: boolean) => {
+        try {
+            if (enable) {
+                await enableAutoRun();
+            } else {
+                await disableAutoRun();
+            }
+            return { success: true };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    })
+
     ipcMain.handle('settings:set', async (_, data) => {
         const newSettings = store?.updateSettings(data)
 

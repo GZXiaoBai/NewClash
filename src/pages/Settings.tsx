@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Moon, Sun, Globe, Shield, Monitor } from 'lucide-react'
+import { Globe, Monitor } from 'lucide-react'
 
 // Simple Switch Component
 function SimpleSwitch({ checked, onCheckedChange }: { checked: boolean; onCheckedChange: (c: boolean) => void }) {
@@ -20,11 +20,14 @@ export default function Settings() {
         allowLan: false,
         theme: 'dark',
         systemProxy: false,
-        tunMode: false
+        tunMode: false,
+        closeToTray: true
     })
+    const [autoStart, setAutoStart] = useState(false)
 
     useEffect(() => {
         window.ipcRenderer.invoke('settings:get').then(setSettings)
+        window.ipcRenderer.invoke('autostart:check').then(setAutoStart)
     }, [])
 
     const updateSetting = (key: string, value: any) => {
@@ -140,11 +143,28 @@ export default function Settings() {
                                 }}
                             />
                         </div>
+                        <div className="p-4 flex items-center justify-between">
+                            <div>
+                                <div className="font-medium">开机自动启动</div>
+                                <div className="text-sm text-muted-foreground">登录系统时自动运行 NewClash</div>
+                            </div>
+                            <SimpleSwitch
+                                checked={autoStart}
+                                onCheckedChange={async (c) => {
+                                    const result = await window.ipcRenderer.invoke('autostart:set', c)
+                                    if (result.success) {
+                                        setAutoStart(c)
+                                    } else {
+                                        alert(`设置失败: ${result.error}`)
+                                    }
+                                }}
+                            />
+                        </div>
                     </div>
                 </section>
 
                 <div className="pt-4 text-center">
-                    <span className="text-xs text-muted-foreground opacity-50">NewClash v1.5.3 • Built with ❤️</span>
+                    <span className="text-xs text-muted-foreground opacity-50">NewClash v1.6.0 • Built with ❤️</span>
                 </div>
             </div>
         </motion.div>

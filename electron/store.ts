@@ -17,6 +17,9 @@ interface Profile {
         total: number;
         expire: number;
     };
+    // Auto Update Settings (Phase 2)
+    autoUpdate?: boolean;
+    interval?: number; // minutes
 }
 
 interface Settings {
@@ -276,6 +279,91 @@ export class StoreManager {
             this.store.set('profiles', profiles);
         }
         return profiles;
+    }
+
+    // Refresh a remote profile (re-download and update userInfo)
+    async refreshProfile(id: string): Promise<{ success: boolean; error?: string }> {
+        const profiles = this.getProfiles();
+        const profile = profiles.find(p => p.id === id);
+
+        if (!profile) return { success: false, error: 'Profile not found' };
+        if (!profile.url.startsWith('http')) return { success: false, error: 'Not a remote profile' };
+
+        try {
+            const axios = (await import('axios')).default;
+            const response = await axios.get(profile.url, {
+                headers: { 'User-Agent': 'ClashMeta/1.18.0' },
+                timeout: 30000,
+                responseType: 'text'
+            });
+
+            // Parse Subscription Info
+            const subInfoStr = response.headers['subscription-userinfo'];
+            let userInfo = profile.userInfo;
+            if (subInfoStr) {
+                try {
+                    const parts = Array.isArray(subInfoStr) ? subInfoStr[0].split(';') : subInfoStr.split(';');
+                    const info: any = {};
+                    parts.forEach((p: string) => {
+                        const [k, v] = p.trim().split('=');
+                        if (k && v) info[k] = parseInt(v, 10);
+                    });
+                    userInfo = info;
+                } catch (e) { }
+            }
+
+            // Parse and save content
+            let content = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+
+            // Try YAML parse, fallback to Base64
+            let config: any = null;
+            try {
+                config = yaml.load(content);
+            } catch (e) {
+                try {
+                    const decoded = Buffer.from(content, 'base64').toString('utf-8');
+                    config = yaml.load(decoded);
+                    content = decoded;
+                } catch (decodeErr) {
+                    return { success: false, error: 'Invalid config format' };
+                }
+            }
+
+            // Inject settings (TUN, etc)
+            if (config && typeof config === 'object') {
+                const settings = this.getSettings();
+                if (settings.tunMode) {
+                    config['tun'] = {
+                        enable: true,
+                        stack: 'system',
+                        'auto-route': true,
+                        'auto-detect-interface': true,
+                        'dns-hijack': ['any:53']
+                    };
+                    if (!config['dns']) config['dns'] = {};
+                    config['dns']['enable'] = true;
+                    config['dns']['enhanced-mode'] = 'fake-ip';
+                }
+                content = yaml.dump(config);
+            }
+
+            // Write to file
+            fs.writeFileSync(profile.localPath, content);
+
+            // Update profile metadata
+            const index = profiles.findIndex(p => p.id === id);
+            if (index !== -1) {
+                profiles[index].updated = Date.now();
+                profiles[index].userInfo = userInfo;
+                this.store.set('profiles', profiles);
+            }
+
+            console.log('[Store] Refreshed profile:', profile.name);
+            return { success: true };
+        } catch (e: any) {
+            console.error('[Store] Failed to refresh profile:', e.message);
+            return { success: false, error: e.message };
+        }
     }
 
     async parseProfile(id: string) {

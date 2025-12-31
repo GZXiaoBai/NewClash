@@ -77,6 +77,22 @@ export default function Profiles() {
         }
     }
 
+    const handleRefresh = async (e: React.MouseEvent, id: string) => {
+        e.stopPropagation()
+        setLoading(true)
+        try {
+            const result = await window.ipcRenderer.invoke('profile:refresh', id)
+            if (result.success) {
+                // Reload profiles to get updated data
+                await loadProfiles()
+            } else {
+                alert(`Refresh failed: ${result.error}`)
+            }
+        } finally {
+            setLoading(false)
+        }
+    }
+
     return (
         <div className="flex-1 h-full p-8 overflow-y-auto no-drag">
             <div className="flex items-center justify-between mb-8">
@@ -175,10 +191,12 @@ export default function Profiles() {
                             <span className="text-xs text-muted-foreground">Updated {new Date(profile.updated).toLocaleString()}</span>
                             <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
-                                    className="p-2 rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
-                                    title="Update"
+                                    onClick={(e) => handleRefresh(e, profile.id)}
+                                    disabled={loading}
+                                    className="p-2 rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground disabled:opacity-50"
+                                    title="Refresh"
                                 >
-                                    <RefreshCw className="w-4 h-4" />
+                                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                                 </button>
                                 <button
                                     onClick={(e) => handleDelete(e, profile.id)}
