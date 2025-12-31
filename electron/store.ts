@@ -124,8 +124,54 @@ export class StoreManager {
                     let dirty = false;
                     const settings = this.getSettings();
 
-                    if (config['allow-lan'] === undefined) {
+                    // === CRITICAL PORT/NETWORK SETTINGS (Always enforce) ===
+                    // These settings MUST be controlled by the app to ensure proxy works correctly
+
+                    // Force mixed-port - this is the main proxy port
+                    if (config['mixed-port'] !== settings.mixedPort) {
+                        config['mixed-port'] = settings.mixedPort;
+                        dirty = true;
+                    }
+
+                    // Force allow-lan setting from app config
+                    if (config['allow-lan'] !== settings.allowLan) {
                         config['allow-lan'] = settings.allowLan;
+                        dirty = true;
+                    }
+
+                    // Bind address - needed for proper network binding
+                    if (config['bind-address'] === undefined) {
+                        config['bind-address'] = '*';
+                        dirty = true;
+                    }
+
+                    // IPv6 support
+                    if (config['ipv6'] === undefined) {
+                        config['ipv6'] = false;
+                        dirty = true;
+                    }
+
+                    // TCP Concurrent for better performance
+                    if (config['tcp-concurrent'] === undefined) {
+                        config['tcp-concurrent'] = true;
+                        dirty = true;
+                    }
+
+                    // Unified Delay for accurate speed tests
+                    if (config['unified-delay'] === undefined) {
+                        config['unified-delay'] = true;
+                        dirty = true;
+                    }
+
+                    // Log level
+                    if (!config['log-level'] || !['info', 'debug', 'warning', 'error', 'silent'].includes(config['log-level'])) {
+                        config['log-level'] = 'info';
+                        dirty = true;
+                    }
+
+                    // Mode default
+                    if (!config['mode']) {
+                        config['mode'] = 'rule';
                         dirty = true;
                     }
 
@@ -329,9 +375,47 @@ export class StoreManager {
                 }
             }
 
-            // Inject settings (TUN, etc)
+            // Inject settings (CRITICAL: same as addProfile)
             if (config && typeof config === 'object') {
                 const settings = this.getSettings();
+
+                // Force mixed-port
+                config['mixed-port'] = settings.mixedPort;
+
+                // Force allow-lan
+                config['allow-lan'] = settings.allowLan;
+
+                // Bind address
+                if (config['bind-address'] === undefined) {
+                    config['bind-address'] = '*';
+                }
+
+                // IPv6
+                if (config['ipv6'] === undefined) {
+                    config['ipv6'] = false;
+                }
+
+                // TCP Concurrent
+                if (config['tcp-concurrent'] === undefined) {
+                    config['tcp-concurrent'] = true;
+                }
+
+                // Unified Delay
+                if (config['unified-delay'] === undefined) {
+                    config['unified-delay'] = true;
+                }
+
+                // Log level
+                if (!config['log-level'] || !['info', 'debug', 'warning', 'error', 'silent'].includes(config['log-level'])) {
+                    config['log-level'] = 'info';
+                }
+
+                // Mode
+                if (!config['mode']) {
+                    config['mode'] = 'rule';
+                }
+
+                // TUN Mode
                 if (settings.tunMode) {
                     config['tun'] = {
                         enable: true,
@@ -343,6 +427,17 @@ export class StoreManager {
                     if (!config['dns']) config['dns'] = {};
                     config['dns']['enable'] = true;
                     config['dns']['enhanced-mode'] = 'fake-ip';
+                    config['dns']['ipv6'] = false;
+                    config['dns']['listen'] = '0.0.0.0:1053';
+
+                    if (!config['dns']['nameserver'] || config['dns']['nameserver'].length === 0) {
+                        config['dns']['nameserver'] = ['223.5.5.5', '114.114.114.114', '8.8.8.8', '1.1.1.1'];
+                        config['dns']['fallback'] = ['8.8.8.8', '1.1.1.1', 'tls://1.1.1.1:853'];
+                    }
+
+                    if (!config['dns']['fake-ip-range']) {
+                        config['dns']['fake-ip-range'] = '198.18.0.1/16';
+                    }
                 }
                 content = yaml.dump(config);
             }
