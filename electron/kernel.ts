@@ -58,7 +58,7 @@ export class KernelManager {
             socketPath: process.platform === 'win32' ? undefined : this.ipcPath, // Windows uses named pipes differently usually, but axios socketPath works for unix sockets
             // For Windows named pipes, axios might need specific handling or just http://localhost:port (if we fallback).
             // But let's assume Unix Socket focus for macOS issues now.
-            timeout: 2000
+            timeout: 10000 // Increased from 2000 to avoid killing latency tests prematurely
         });
 
         // Add response interceptor for better error messages
@@ -303,12 +303,17 @@ export class KernelManager {
 
     private async startPolling() {
         setInterval(async () => {
-            if (!this.process) return;
+            // if (!this.process) return; // Don't check process, check API availability. Socket might be alive even if process ref is lost (detached)
             try {
                 const api = await this.getAxios();
                 const res = await api.get('/traffic', { timeout: 1000 }) as any;
-                if (res) this.sendToRenderer('core:stats', res);
-            } catch (e) { }
+                if (res) {
+                    // console.log('[Kernel] Traffic:', res); // Optional debug
+                    this.sendToRenderer('core:stats', res);
+                }
+            } catch (e) {
+                // console.log('Poll failed'); 
+            }
         }, 1000);
     }
 
@@ -365,7 +370,8 @@ export class KernelManager {
         try {
             const api = await this.getAxios();
             const res: any = await api.get(`/proxies/${encodeURIComponent(name)}/delay`, {
-                params: { timeout: 5000, url: 'http://www.gstatic.com/generate_204' }
+                params: { timeout: 5000, url: 'http://www.gstatic.com/generate_204' },
+                timeout: 8000 // Axios timeout > Test timeout
             });
             return res;
         } catch (e) { return { delay: -1 }; }
