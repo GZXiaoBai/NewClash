@@ -123,13 +123,33 @@ function registerIpcHandlers() {
             }
         }
 
+        // Window Theme (TitleBar Overlay for Windows)
+        if (data.theme !== undefined && win) {
+            // Light theme -> Black symbols
+            // Dark theme -> White symbols
+            const symbolColor = data.theme === 'light' ? '#000000' : '#ffffff';
+            win.setTitleBarOverlay({
+                color: '#00000000',
+                symbolColor: symbolColor,
+                height: 30
+            });
+        }
+
         return newSettings;
     })
 }
 
 function createWindow() {
+    // Initialize Core Components (only once)
+    if (!store) {
+        store = new StoreManager()
+    }
+
+    const settings = store.getSettings();
+    const isLight = settings?.theme === 'light';
+
     win = new BrowserWindow({
-        icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+        icon: path.join(process.env.VITE_PUBLIC, 'icon.png'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,
@@ -138,7 +158,7 @@ function createWindow() {
         titleBarStyle: 'hidden',
         titleBarOverlay: {
             color: '#00000000',
-            symbolColor: '#ffffff',
+            symbolColor: isLight ? '#000000' : '#ffffff',
             height: 30
         },
         width: 1000,
@@ -149,10 +169,6 @@ function createWindow() {
         show: false
     })
 
-    // Initialize Core Components (only once)
-    if (!store) {
-        store = new StoreManager()
-    }
     if (!kernel) {
         kernel = new KernelManager(win.webContents)
 
@@ -242,7 +258,8 @@ function createWindow() {
 
     // Tray Implementation (only once)
     if (!tray) {
-        const iconPath = path.join(process.env.VITE_PUBLIC, 'electron-vite.svg');
+        // Use tray-icon.png (preferred for cross-platform compatibility if .ico is missing)
+        const iconPath = path.join(process.env.VITE_PUBLIC, 'tray-icon.png');
         const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
         tray = new Tray(icon);
         tray.setToolTip('NewClash');
@@ -404,4 +421,20 @@ app.on('activate', () => {
     }
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+    createWindow()
+
+    // Register Theme Update Handler
+    ipcMain.handle('window:update-theme', (_, theme) => {
+        if (win) {
+            // Update TitleBarOverlay Symbol Color (Mainly for Windows)
+            // Light theme -> Black symbols
+            // Dark theme -> White symbols
+            win.setTitleBarOverlay({
+                color: '#00000000',
+                symbolColor: theme === 'light' ? '#000000' : '#ffffff',
+                height: 30
+            })
+        }
+    })
+})
