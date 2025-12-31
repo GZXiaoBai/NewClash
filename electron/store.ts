@@ -91,12 +91,12 @@ export class StoreManager {
                     let dirty = false;
                     const settings = this.getSettings();
 
+                    // Always enforce our standard controller port so the UI can connect
+                    config['external-controller'] = '127.0.0.1:9090';
+                    dirty = true;
+
                     if (!config['mixed-port'] && !config['port']) {
                         config['mixed-port'] = settings.mixedPort || 7890;
-                        dirty = true;
-                    }
-                    if (!config['external-controller']) {
-                        config['external-controller'] = '127.0.0.1:9090';
                         dirty = true;
                     }
                     if (config['allow-lan'] === undefined) {

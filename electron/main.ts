@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage } from 'electron'
 import path from 'node:path'
 import { KernelManager } from './kernel'
 import { StoreManager } from './store'
@@ -9,6 +9,7 @@ process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(__dirname, '../public')
 
 let win: BrowserWindow | null
+let tray: Tray | null = null
 let kernel: KernelManager | null = null
 let store: StoreManager | null = null
 
@@ -156,6 +157,29 @@ function createWindow() {
     win.once('ready-to-show', () => {
         win?.show()
     })
+
+    // Tray Implementation
+    const iconPath = path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'); // Use generic icon for now or dedicated tray icon
+    // For macOS tray, it's best to use a template image (files ending in Template.png) for auto light/dark mode
+    // But we'll stick to the existing icon for simplicity first
+    const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+
+    tray = new Tray(icon);
+    const contextMenu = Menu.buildFromTemplate([
+        { label: 'Show App', click: () => win?.show() },
+        { type: 'separator' },
+        {
+            label: 'Quit', click: () => {
+                app.quit();
+                kernel?.stop();
+            }
+        }
+    ]);
+    tray.setToolTip('NewClash');
+    tray.setContextMenu(contextMenu);
+
+    // On macOS, clicking the tray icon usually just opens the menu, but we can double click or change behavior?
+    // Actually standard macOS behavior for Tray (Status Item) is just menu.
 }
 
 app.on('window-all-closed', () => {

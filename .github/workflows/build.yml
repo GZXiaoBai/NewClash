@@ -53,6 +53,7 @@ jobs:
         run: npm install
 
       - name: Download Clash Binary (Windows)
+        shell: bash
         run: |
           mkdir -p bin
           curl -L -o clash.zip https://github.com/Dreamacro/clash/releases/download/v1.18.0/clash-windows-amd64-v1.18.0.zip
