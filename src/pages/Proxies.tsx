@@ -4,8 +4,20 @@ import { cn } from '@/lib/utils'
 // Removed framer-motion from individual items to prevent freeze on large lists
 import { motion } from 'framer-motion'
 
-function ProxyGroup({ name, type, proxies, selected: currentSelected, onSelect, latencies }: any) {
+function ProxyGroup({ name, type, proxies, selected: currentSelected, onSelect, latencies, onTestGroup }: any) {
     const [isOpen, setIsOpen] = useState(false)
+    const [testing, setTesting] = useState(false)
+
+    const handleTestGroup = async (e: React.MouseEvent) => {
+        e.stopPropagation()
+        if (testing) return
+        setTesting(true)
+        try {
+            await onTestGroup(name)
+        } finally {
+            setTesting(false)
+        }
+    }
 
     return (
         <div className="mb-6 rounded-2xl bg-card border border-border/50 overflow-hidden shadow-sm">
@@ -22,11 +34,21 @@ function ProxyGroup({ name, type, proxies, selected: currentSelected, onSelect, 
                     <span className="text-xs text-muted-foreground ml-2">
                         {currentSelected}
                     </span>
-                    <span className="text-xs text-muted-foreground ml-auto">
+                </div>
+                <div className="flex items-center space-x-3">
+                    <span className="text-xs text-muted-foreground">
                         {proxies.length} items
                     </span>
+                    <button
+                        onClick={handleTestGroup}
+                        disabled={testing}
+                        className="p-1.5 rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-primary disabled:opacity-50"
+                        title="批量测速"
+                    >
+                        <Zap className={`w-4 h-4 ${testing ? 'animate-pulse text-yellow-500' : ''}`} />
+                    </button>
+                    <ChevronDown className={cn("w-5 h-5 transition-transform", isOpen ? "rotate-180" : "")} />
                 </div>
-                <ChevronDown className={cn("w-5 h-5 transition-transform", isOpen ? "rotate-180" : "")} />
             </button>
 
             {isOpen && (
@@ -207,6 +229,13 @@ export default function Proxies() {
                             {...group}
                             latencies={latencies}
                             onSelect={handleSelect}
+                            onTestGroup={async (groupName: string) => {
+                                // Use group delay test API
+                                const results = await window.ipcRenderer.invoke('proxies:testGroup', groupName)
+                                if (results && typeof results === 'object') {
+                                    setLatencies(prev => ({ ...prev, ...results }))
+                                }
+                            }}
                         />
                     ))}
                 </div>
