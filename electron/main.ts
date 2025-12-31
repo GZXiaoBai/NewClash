@@ -193,21 +193,145 @@ function createWindow() {
     if (!tray) {
         const iconPath = path.join(process.env.VITE_PUBLIC, 'electron-vite.svg');
         const icon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
-
         tray = new Tray(icon);
-        const contextMenu = Menu.buildFromTemplate([
-            { label: 'Show App', click: () => win?.show() },
-            { type: 'separator' },
-            {
-                label: 'Quit', click: () => {
-                    kernel?.stop();
-                    app.quit();
+        tray.setToolTip('NewClash');
+
+        // Update tray menu dynamically
+        updateTrayMenu();
+
+        // Refresh tray menu periodically to reflect state changes
+        setInterval(updateTrayMenu, 3000);
+    }
+}
+
+// Dynamic Tray Menu Builder
+async function updateTrayMenu() {
+    if (!tray) return;
+
+    const settings = store?.getSettings() || { systemProxy: false, tunMode: false, mixedPort: 7890 };
+    const currentMode = await kernel?.getMode() || 'rule';
+
+    // Get proxy groups for submenu
+    let proxySubmenu: Electron.MenuItemConstructorOptions[] = [];
+    try {
+        const proxyData = await kernel?.getProxies();
+        if (proxyData?.proxies) {
+            // Find selector groups (groups that can switch proxies)
+            const groups = Object.entries(proxyData.proxies)
+                .filter(([_, v]: [string, any]) => v.type === 'Selector' || v.type === 'URLTest')
+                .slice(0, 5); // Limit to 5 groups for menu size
+
+            for (const [groupName, groupData] of groups as [string, any][]) {
+                const currentProxy = groupData.now || '';
+                const proxies = groupData.all || [];
+
+                if (proxies.length > 0) {
+                    proxySubmenu.push({
+                        label: groupName,
+                        submenu: proxies.slice(0, 15).map((proxyName: string) => ({
+                            label: proxyName,
+                            type: 'radio' as const,
+                            checked: proxyName === currentProxy,
+                            click: async () => {
+                                await kernel?.setProxy(groupName, proxyName);
+                                updateTrayMenu();
+                            }
+                        }))
+                    });
                 }
             }
-        ]);
-        tray.setToolTip('NewClash');
-        tray.setContextMenu(contextMenu);
+        }
+    } catch (e) {
+        // Kernel may not be ready yet
     }
+
+    const contextMenu = Menu.buildFromTemplate([
+        { label: 'NewClash', enabled: false },
+        { type: 'separator' },
+
+        // Mode Selection
+        {
+            label: '🌐 模式',
+            submenu: [
+                {
+                    label: '规则 (Rule)',
+                    type: 'radio',
+                    checked: currentMode === 'rule',
+                    click: async () => {
+                        await kernel?.setMode('rule');
+                        updateTrayMenu();
+                    }
+                },
+                {
+                    label: '全局 (Global)',
+                    type: 'radio',
+                    checked: currentMode === 'global',
+                    click: async () => {
+                        await kernel?.setMode('global');
+                        updateTrayMenu();
+                    }
+                },
+                {
+                    label: '直连 (Direct)',
+                    type: 'radio',
+                    checked: currentMode === 'direct',
+                    click: async () => {
+                        await kernel?.setMode('direct');
+                        updateTrayMenu();
+                    }
+                }
+            ]
+        },
+
+        { type: 'separator' },
+
+        // System Proxy Toggle
+        {
+            label: settings.systemProxy ? '✅ 系统代理' : '⬜ 系统代理',
+            click: async () => {
+                const newValue = !settings.systemProxy;
+                store?.updateSettings({ systemProxy: newValue });
+                await setSystemProxy(newValue, settings.mixedPort || 7890);
+                updateTrayMenu();
+            }
+        },
+
+        // TUN Mode Toggle
+        {
+            label: settings.tunMode ? '✅ TUN 模式' : '⬜ TUN 模式',
+            click: async () => {
+                const newValue = !settings.tunMode;
+                store?.updateSettings({ tunMode: newValue });
+                // TUN requires config regeneration
+                const configPath = await store?.regenerateActiveProfile();
+                if (configPath) {
+                    await kernel?.updateConfig(configPath);
+                }
+                updateTrayMenu();
+            }
+        },
+
+        { type: 'separator' },
+
+        // Proxy Selection (if available)
+        ...(proxySubmenu.length > 0 ? [
+            { label: '🔗 节点选择', submenu: proxySubmenu }
+        ] : []),
+
+        ...(proxySubmenu.length > 0 ? [{ type: 'separator' as const }] : []),
+
+        // Standard items
+        { label: '📱 显示主窗口', click: () => win?.show() },
+        { type: 'separator' },
+        {
+            label: '❌ 退出', click: () => {
+                kernel?.stop();
+                app.quit();
+            }
+        }
+    ]);
+
+    tray.setContextMenu(contextMenu);
 }
 
 app.on('window-all-closed', () => {
