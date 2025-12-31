@@ -199,11 +199,11 @@ export class KernelManager {
         this.process.stdout?.on('data', (d) => {
             const msg = d.toString();
             // console.log('[Clash]', msg); // optional debug
-            this.webContents.send('core:logs', { type: 'info', payload: msg.trim(), time: new Date().toLocaleTimeString() });
+            this.sendToRenderer('core:logs', { type: 'info', payload: msg.trim(), time: new Date().toLocaleTimeString() });
         });
         this.process.stderr?.on('data', (d) => {
             const msg = d.toString();
-            this.webContents.send('core:logs', { type: 'error', payload: msg.trim(), time: new Date().toLocaleTimeString() });
+            this.sendToRenderer('core:logs', { type: 'error', payload: msg.trim(), time: new Date().toLocaleTimeString() });
         });
 
         this.process.on('error', (err) => console.error('[Kernel] Process error:', err));
