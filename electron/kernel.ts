@@ -14,24 +14,63 @@ export class KernelManager {
         this.webContents = webContents;
     }
 
-    // Find binary path
+    // Find and prepare binary path
     private getBinaryPath(): string {
         const platform = process.platform;
         let binaryName = 'clash';
         if (platform === 'win32') binaryName = 'clash.exe';
 
-        const paths = [
-            path.join(process.cwd(), 'bin', binaryName),
-            path.join(process.resourcesPath, 'bin', binaryName),
-            path.join(app.getPath('userData'), 'bin', binaryName),
-            '/usr/local/bin/clash' // Fallback for macOS
-        ];
-
-        for (const p of paths) {
-            if (fs.existsSync(p)) return p;
+        // Source Path (In Resources or Local bin)
+        // Production: resources/bin/clash
+        // Development: bin/clash
+        let sourcePath = path.join(process.resourcesPath, 'bin', binaryName);
+        if (!fs.existsSync(sourcePath)) {
+            sourcePath = path.join(process.cwd(), 'bin', binaryName);
         }
 
-        return ''; // Not found
+        if (!fs.existsSync(sourcePath)) return '';
+
+        // Target Path (In UserData for Writable/Executable)
+        // copying to userData ensures we can chmod it even if running from read-only DMG
+        const targetDir = path.join(app.getPath('userData'), 'bin');
+        const targetPath = path.join(targetDir, binaryName);
+
+        // Ensure target directory
+        if (!fs.existsSync(targetDir)) {
+            try {
+                fs.mkdirSync(targetDir, { recursive: true });
+            } catch (e) {
+                console.error('[Kernel] Failed to create bin dir:', e);
+                return sourcePath; // Fallback to source
+            }
+        }
+
+        // Copy if missing or different size (simple check)
+        // For robustness, we should probably always copy on update, but size check is a quick heuristic
+        let shouldCopy = false;
+        if (!fs.existsSync(targetPath)) {
+            shouldCopy = true;
+        } else {
+            try {
+                const srcStat = fs.statSync(sourcePath);
+                const tgtStat = fs.statSync(targetPath);
+                if (srcStat.size !== tgtStat.size) shouldCopy = true;
+            } catch (e) {
+                shouldCopy = true;
+            }
+        }
+
+        if (shouldCopy) {
+            try {
+                console.log(`[Kernel] Copying binary from ${sourcePath} to ${targetPath}`);
+                fs.copyFileSync(sourcePath, targetPath);
+            } catch (e) {
+                console.error('[Kernel] Failed to copy binary:', e);
+                return sourcePath; // Fallback
+            }
+        }
+
+        return targetPath;
     }
 
     private async cleanupPorts() {
@@ -90,6 +129,7 @@ export class KernelManager {
         }
 
         // Grant execute permissions (Critical for macOS/Linux)
+        // Now running on userData copy, this should always succeed
         if (process.platform !== 'win32') {
             try {
                 fs.chmodSync(binPath, 0o755);
