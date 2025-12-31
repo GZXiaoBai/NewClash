@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const http = require('http');
-const AdmZip = require('adm-zip');
+const zlib = require('zlib');
 
 // Robust download with proper redirect handling (GitHub uses multiple redirects)
 function downloadFile(url, dest, maxRedirects = 5) {
@@ -50,7 +50,7 @@ function downloadFile(url, dest, maxRedirects = 5) {
             reject(err);
         });
 
-        request.setTimeout(60000, () => {
+        request.setTimeout(120000, () => {
             request.destroy();
             reject(new Error('Download timeout'));
         });
@@ -63,34 +63,42 @@ async function main() {
         fs.mkdirSync(binDir, { recursive: true });
     }
 
-    console.log('=== Downloading Windows Binary ===');
-    const winUrl = 'https://github.com/Dreamacro/clash/releases/download/v1.18.0/clash-windows-amd64-v1.18.0.zip';
-    const zipPath = path.join(binDir, 'clash.zip');
+    console.log('=== Downloading Mihomo (Clash Meta) Windows Binary ===');
+
+    // Use Mihomo (Clash Meta) instead of deprecated Clash
+    // Format: .gz file which needs to be decompressed
+    const version = 'v1.19.18';
+    const winUrl = `https://github.com/MetaCubeX/mihomo/releases/download/${version}/mihomo-windows-amd64-${version}.zip`;
+    const zipPath = path.join(binDir, 'mihomo.zip');
 
     try {
         await downloadFile(winUrl, zipPath);
 
-        console.log('[Unzip] Extracting with adm-zip...');
-        const zip = new AdmZip(zipPath);
-        zip.extractAllTo(binDir, true);
+        console.log('[Unzip] Extracting...');
 
-        // Find and rename the extracted binary
-        const extracted = path.join(binDir, 'clash-windows-amd64-v1.18.0.exe');
-        const target = path.join(binDir, 'clash.exe');
+        // Use Node.js built-in unzip via child_process on Windows
+        const { execSync } = require('child_process');
 
-        if (fs.existsSync(extracted)) {
-            fs.renameSync(extracted, target);
-            console.log('[Rename] clash-windows-amd64-v1.18.0.exe -> clash.exe');
+        // Windows has tar command that can extract zip files since Windows 10
+        execSync(`tar -xf "${zipPath}" -C "${binDir}"`, { stdio: 'inherit' });
+
+        // Find the extracted exe
+        const files = fs.readdirSync(binDir);
+        console.log('[Unzip] Contents:', files);
+
+        const mihomoExe = files.find(f => f.startsWith('mihomo') && f.endsWith('.exe'));
+        if (mihomoExe) {
+            const target = path.join(binDir, 'clash.exe');
+            fs.renameSync(path.join(binDir, mihomoExe), target);
+            console.log(`[Rename] ${mihomoExe} -> clash.exe`);
         } else {
-            // List what was extracted
-            console.log('[Unzip] Contents:', fs.readdirSync(binDir));
-            throw new Error('Expected binary not found after extraction');
+            throw new Error('Mihomo exe not found after extraction');
         }
 
         // Clean up
         fs.unlinkSync(zipPath);
         console.log('[Cleanup] Removed zip file');
-        console.log('=== Windows binary prepared successfully! ===');
+        console.log('=== Mihomo binary prepared successfully! ===');
 
     } catch (e) {
         console.error('=== FAILED ===');
