@@ -16,6 +16,23 @@ let ipcHandlersRegistered = false
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
 
+// Single instance lock - prevent multiple instances and handle port conflicts
+const gotTheLock = app.requestSingleInstanceLock()
+
+if (!gotTheLock) {
+    // Another instance is running, quit immediately
+    app.quit()
+} else {
+    // This is the first instance, register second-instance handler
+    app.on('second-instance', () => {
+        // Someone tried to run a second instance, focus our window
+        if (win) {
+            if (win.isMinimized()) win.restore()
+            win.focus()
+        }
+    })
+}
+
 function registerIpcHandlers() {
     if (ipcHandlersRegistered) return;
     ipcHandlersRegistered = true;
@@ -198,6 +215,12 @@ app.on('window-all-closed', () => {
         kernel?.stop()
         app.quit()
     }
+})
+
+// Ensure kernel is stopped before app quits (critical for Windows cleanup)
+app.on('before-quit', () => {
+    console.log('[Main] App quitting, stopping kernel...')
+    kernel?.stop()
 })
 
 app.on('activate', () => {

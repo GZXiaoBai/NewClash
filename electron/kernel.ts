@@ -174,7 +174,22 @@ export class KernelManager {
 
     stop() {
         if (this.process) {
-            this.process.kill();
+            const pid = this.process.pid;
+            console.log('[Kernel] Stopping process with PID:', pid);
+
+            // On Windows, process.kill() may not reliably kill child processes
+            // Use taskkill for forceful termination
+            if (process.platform === 'win32' && pid) {
+                try {
+                    const { execSync } = require('child_process');
+                    execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore' });
+                } catch (e) {
+                    // Ignore errors if process already dead
+                }
+            } else {
+                this.process.kill('SIGKILL');
+            }
+
             this.process = null;
         }
     }
