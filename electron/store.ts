@@ -11,6 +11,12 @@ interface Profile {
     localPath: string; // Actual file path on disk
     active: boolean;
     updated: number; // timestamp
+    userInfo?: {
+        upload: number;
+        download: number;
+        total: number;
+        expire: number;
+    };
 }
 
 interface Settings {
@@ -72,6 +78,22 @@ export class StoreManager {
                     headers: { 'User-Agent': 'ClashMeta/1.18.0' } // fake UA to ensure we get yaml
                 });
                 if (!response.ok) throw new Error('Network response was not ok');
+
+                // Parse Subscription Info
+                const subInfoStr = response.headers.get('subscription-userinfo');
+                let userInfo = undefined;
+                if (subInfoStr) {
+                    try {
+                        const parts = subInfoStr.split(';');
+                        const info: any = {};
+                        parts.forEach(p => {
+                            const [k, v] = p.trim().split('=');
+                            if (k && v) info[k] = parseInt(v, 10);
+                        });
+                        userInfo = info;
+                    } catch (e) { }
+                }
+
                 let content = await response.text();
 
                 // Try to parse YAML
@@ -207,7 +229,8 @@ export class StoreManager {
             url,
             localPath,
             active: profiles.length === 0, // Make active if it's the first one
-            updated: Date.now()
+            updated: Date.now(),
+            userInfo
         };
 
         profiles.push(newProfile);
@@ -294,6 +317,27 @@ export class StoreManager {
                 const axios = (await import('axios')).default;
                 const resp = await axios.get(activeProfile.url, { timeout: 30000 });
                 content = typeof resp.data === 'string' ? resp.data : yaml.dump(resp.data);
+
+                // Update Subscription Info if present
+                const subInfoStr = resp.headers['subscription-userinfo'];
+                if (subInfoStr) {
+                    try {
+                        const parts = subInfoStr.split(';');
+                        const info: any = {};
+                        parts.forEach((p: string) => {
+                            const [k, v] = p.trim().split('=');
+                            if (k && v) info[k] = parseInt(v, 10);
+                        });
+                        activeProfile.userInfo = info;
+                        // Save updated profile info to store
+                        const allProfiles = this.getProfiles();
+                        const idx = allProfiles.findIndex(p => p.id === activeProfile.id);
+                        if (idx !== -1) {
+                            allProfiles[idx].userInfo = info;
+                            this.store.set('profiles', allProfiles);
+                        }
+                    } catch (e) { }
+                }
             } else {
                 // Read from original local path or cached
                 content = fs.readFileSync(activeProfile.localPath, 'utf-8');

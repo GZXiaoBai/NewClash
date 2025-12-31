@@ -1,4 +1,4 @@
-import { FileCode, Download, RefreshCw, Plus, Trash2, FolderOpen } from 'lucide-react'
+import { FileCode, RefreshCw, Plus, Trash2, FolderOpen } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 
@@ -8,6 +8,25 @@ interface Profile {
     url: string
     active: boolean
     updated: number
+    userInfo?: {
+        upload: number
+        download: number
+        total: number
+        expire: number
+    }
+}
+
+function formatBytes(bytes: number, decimals = 2) {
+    if (!+bytes) return '0 B'
+    const k = 1024
+    const dm = decimals < 0 ? 0 : decimals
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
+}
+
+function formatDate(timestamp: number) {
+    return new Date(timestamp * 1000).toLocaleDateString()
 }
 
 export default function Profiles() {
@@ -133,6 +152,24 @@ export default function Profiles() {
                                 </span>
                             )}
                         </div>
+
+                        {/* Subscription Info Bar */}
+                        {profile.userInfo && (
+                            <div className="mb-4 space-y-2">
+                                <div className="flex justify-between text-xs font-medium text-muted-foreground/90">
+                                    <span>
+                                        {formatBytes(profile.userInfo.upload + profile.userInfo.download)} / {formatBytes(profile.userInfo.total)}
+                                    </span>
+                                    <span>{profile.userInfo.expire ? formatDate(profile.userInfo.expire) : 'No Expiry'}</span>
+                                </div>
+                                <div className="h-2 w-full bg-secondary/50 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-primary transition-all duration-500"
+                                        style={{ width: `${Math.min(((profile.userInfo.upload + profile.userInfo.download) / profile.userInfo.total) * 100, 100)}%` }}
+                                    />
+                                </div>
+                            </div>
+                        )}
 
                         <div className="flex items-center justify-between mt-4">
                             <span className="text-xs text-muted-foreground">Updated {new Date(profile.updated).toLocaleString()}</span>
