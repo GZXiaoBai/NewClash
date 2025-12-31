@@ -266,6 +266,11 @@ export class KernelManager {
     }
 
     async stop() {
+        if (this.trafficWs) {
+            try { this.trafficWs.terminate(); } catch (e) { }
+            this.trafficWs = null;
+        }
+
         if (this.process) {
             console.log('[Kernel] Killing child process...');
             this.process.kill('SIGINT');
@@ -301,20 +306,40 @@ export class KernelManager {
 
     // --- API Methods ---
 
+    private trafficWs: any = null;
+
     private async startPolling() {
-        setInterval(async () => {
-            // if (!this.process) return; // Don't check process, check API availability. Socket might be alive even if process ref is lost (detached)
-            try {
-                const api = await this.getAxios();
-                const res = await api.get('/traffic', { timeout: 1000 }) as any;
-                if (res) {
-                    // console.log('[Kernel] Traffic:', res); // Optional debug
-                    this.sendToRenderer('core:stats', res);
-                }
-            } catch (e) {
-                // console.log('Poll failed'); 
-            }
-        }, 1000);
+        // Use WebSocket for real-time traffic (Clash Party Style)
+        const WebSocket = require('ws');
+        const wsUrl = process.platform === 'win32'
+            ? `ws://127.0.0.1:9092/traffic` // Windows fallback or pipe handling todo
+            : `ws+unix:${this.ipcPath}:/traffic`;
+
+        console.log('[Kernel] Connecting to Traffic WS:', wsUrl);
+
+        if (this.trafficWs) {
+            try { this.trafficWs.terminate(); } catch (e) { }
+        }
+
+        try {
+            this.trafficWs = new WebSocket(wsUrl);
+            this.trafficWs.on('message', (data: any) => {
+                try {
+                    const parsed = JSON.parse(data.toString());
+                    this.sendToRenderer('core:stats', parsed);
+                } catch (e) { }
+            });
+            this.trafficWs.on('error', (e: any) => {
+                // console.error('[Kernel] Traffic WS Error:', e.message);
+            });
+            this.trafficWs.on('close', () => {
+                // Reconnect?
+                setTimeout(() => this.startPolling(), 2000);
+            });
+        } catch (e) {
+            console.error('[Kernel] Failed to create WS:', e);
+            setTimeout(() => this.startPolling(), 2000);
+        }
     }
 
     async getVersion() {
