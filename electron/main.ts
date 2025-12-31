@@ -189,6 +189,57 @@ function createWindow() {
         win?.show()
     })
 
+    // Handle window close - show dialog or minimize to tray based on settings
+    win.on('close', (event) => {
+        if (!win || !store) return;
+
+        const settings = store.getSettings();
+
+        // If user has already made a choice, use it
+        if (settings.closeToTrayAsked) {
+            if (settings.closeToTray) {
+                event.preventDefault();
+                win.hide();
+            }
+            // else: let it close normally
+            return;
+        }
+
+        // First time closing - show dialog (Windows only, macOS uses different behavior)
+        if (process.platform !== 'darwin') {
+            event.preventDefault();
+
+            dialog.showMessageBox(win, {
+                type: 'question',
+                buttons: ['最小化到托盘', '退出程序'],
+                defaultId: 0,
+                cancelId: 1,
+                title: '关闭窗口',
+                message: '您想要如何处理？',
+                detail: '选择"最小化到托盘"将保持程序在后台运行。',
+                checkboxLabel: '记住我的选择',
+                checkboxChecked: false
+            }).then((result) => {
+                const minimizeToTray = result.response === 0;
+                const rememberChoice = result.checkboxChecked;
+
+                if (rememberChoice) {
+                    store?.updateSettings({
+                        closeToTray: minimizeToTray,
+                        closeToTrayAsked: true
+                    });
+                }
+
+                if (minimizeToTray) {
+                    win?.hide();
+                } else {
+                    kernel?.stop();
+                    app.quit();
+                }
+            });
+        }
+    })
+
     // Tray Implementation (only once)
     if (!tray) {
         const iconPath = path.join(process.env.VITE_PUBLIC, 'electron-vite.svg');

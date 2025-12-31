@@ -19,6 +19,8 @@ interface Settings {
     allowLan: boolean;
     systemProxy: boolean;
     tunMode: boolean;
+    closeToTray: boolean;      // true = minimize to tray on close, false = quit
+    closeToTrayAsked: boolean; // true = user has made a choice, don't ask again
 }
 
 interface Schema {
@@ -44,7 +46,9 @@ export class StoreManager {
                     mixedPort: 7890,
                     allowLan: false,
                     systemProxy: false,
-                    tunMode: false
+                    tunMode: false,
+                    closeToTray: true,      // Default: minimize to tray
+                    closeToTrayAsked: false // Default: ask user on first close
                 }
             }
         });

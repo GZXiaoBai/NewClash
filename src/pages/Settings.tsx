@@ -127,11 +127,24 @@ export default function Settings() {
                                 <option value="system">🖥️ 跟随系统</option>
                             </select>
                         </div>
+                        <div className="p-4 flex items-center justify-between">
+                            <div>
+                                <div className="font-medium">关闭时最小化到托盘</div>
+                                <div className="text-sm text-muted-foreground">关闭窗口时保持程序在后台运行</div>
+                            </div>
+                            <SimpleSwitch
+                                checked={settings.closeToTray ?? true}
+                                onCheckedChange={(c) => {
+                                    updateSetting('closeToTray', c)
+                                    updateSetting('closeToTrayAsked', true) // Mark as user explicitly set
+                                }}
+                            />
+                        </div>
                     </div>
                 </section>
 
                 <div className="pt-4 text-center">
-                    <span className="text-xs text-muted-foreground opacity-50">NewClash v0.1.0 • Built with ❤️</span>
+                    <span className="text-xs text-muted-foreground opacity-50">NewClash v1.2.0 • Built with ❤️</span>
                 </div>
             </div>
         </motion.div>
