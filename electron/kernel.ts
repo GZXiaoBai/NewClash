@@ -3,6 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { app } from 'electron';
 import axios, { AxiosInstance } from 'axios';
+import WebSocket from 'ws';
 
 // No types for sudo-prompt, using require
 const sudo = require('sudo-prompt');
