@@ -70,7 +70,7 @@ export function Sidebar() {
 
                 {/* Mode Switcher - Refined */}
                 <div className="px-2 mb-8 no-drag">
-                    <div className="bg-black/20 p-1.5 rounded-2xl border border-white/5 flex items-center shadow-inner">
+                    <div className="bg-muted/30 p-1.5 rounded-2xl border border-border flex items-center shadow-inner">
                         {['rule', 'global', 'direct'].map((m) => {
                             const activeGradient = m === 'rule'
                                 ? 'from-blue-600 to-indigo-600'

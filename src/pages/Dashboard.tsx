@@ -9,14 +9,14 @@ function StatusCard({ title, value, icon: Icon, colorClass, index, subValue }: a
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="group relative p-5 rounded-3xl bg-black/20 backdrop-blur-xl border border-white/10 shadow-xl overflow-hidden"
+            className="group relative p-5 rounded-3xl bg-card/60 backdrop-blur-xl border border-border shadow-xl overflow-hidden"
         >
             {/* Ambient Background Glow */}
             <div className={`absolute -right-4 -top-4 w-24 h-24 bg-gradient-to-br ${colorClass.replace('text-', 'from-').split(' ')[0]} to-transparent opacity-20 blur-2xl group-hover:opacity-40 transition-opacity duration-500`} />
 
             <div className="flex items-center justify-between mb-4 relative z-10">
                 <div className="flex items-center gap-2">
-                    <div className={cn("p-2.5 rounded-xl bg-white/5 border border-white/5 shadow-inner backdrop-blur-md", colorClass.replace('from-', 'text-').split(' ')[0])}>
+                    <div className={cn("p-2.5 rounded-xl bg-muted/50 border border-border shadow-inner backdrop-blur-md", colorClass.replace('from-', 'text-').split(' ')[0])}>
                         <Icon className="w-4 h-4" />
                     </div>
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</span>
@@ -24,7 +24,7 @@ function StatusCard({ title, value, icon: Icon, colorClass, index, subValue }: a
             </div>
 
             <div className="relative z-10">
-                <div className="text-2xl font-bold tracking-tight font-mono mb-1 text-white/90 drop-shadow-sm">{value}</div>
+                <div className="text-2xl font-bold tracking-tight font-mono mb-1 text-foreground drop-shadow-sm">{value}</div>
                 {subValue && (
                     <div className="text-[10px] text-muted-foreground/60 font-mono uppercase tracking-widest">
                         {subValue}

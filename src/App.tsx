@@ -25,7 +25,7 @@ function Layout() {
     }, [])
 
     return (
-        <div className="flex h-screen w-screen bg-[#0a0a0c] overflow-hidden font-sans text-foreground selection:bg-primary/30">
+        <div className="flex h-screen w-screen bg-background overflow-hidden font-sans text-foreground selection:bg-primary/30">
             {/* Ambient Background */}
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
                 <div className="absolute -top-[50%] -left-[20%] w-[80%] h-[80%] rounded-full bg-primary/5 blur-[120px]" />
