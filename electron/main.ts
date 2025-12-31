@@ -186,6 +186,59 @@ function registerIpcHandlers() {
         return await checkForUpdate();
     })
 
+    // --- Advanced Features (Phase 3+) ---
+
+    // GEO Data Update
+    ipcMain.handle('geo:update', async (_, type: 'geoip' | 'geosite') => {
+        if (!kernel) return { success: false, error: 'Kernel not initialized' };
+        return await kernel.updateGeoData(type);
+    })
+
+    // Providers
+    ipcMain.handle('providers:proxy', async () => {
+        if (!kernel) return { providers: {} };
+        return await kernel.getProxyProviders();
+    })
+
+    ipcMain.handle('providers:rule', async () => {
+        if (!kernel) return { providers: {} };
+        return await kernel.getRuleProviders();
+    })
+
+    ipcMain.handle('providers:update:proxy', async (_, name: string) => {
+        if (!kernel) return { success: false, error: 'Kernel not initialized' };
+        return await kernel.updateProxyProvider(name);
+    })
+
+    ipcMain.handle('providers:update:rule', async (_, name: string) => {
+        if (!kernel) return { success: false, error: 'Kernel not initialized' };
+        return await kernel.updateRuleProvider(name);
+    })
+
+    // Group Delay Test
+    ipcMain.handle('proxies:testGroup', async (_, group: string, url?: string) => {
+        if (!kernel) return {};
+        return await kernel.testGroupDelay(group, url);
+    })
+
+    // Rules
+    ipcMain.handle('rules:get', async () => {
+        if (!kernel) return [];
+        return await kernel.getRules();
+    })
+
+    // DNS Flush
+    ipcMain.handle('dns:flush', async () => {
+        if (!kernel) return { success: false };
+        return await kernel.flushDns();
+    })
+
+    // Core Restart
+    ipcMain.handle('core:restart', async () => {
+        if (!kernel) return;
+        await kernel.restart();
+    })
+
     ipcMain.handle('settings:set', async (_, data) => {
         const newSettings = store?.updateSettings(data)
 

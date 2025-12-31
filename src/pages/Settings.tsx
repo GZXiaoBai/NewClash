@@ -163,8 +163,92 @@ export default function Settings() {
                     </div>
                 </section>
 
+                {/* Advanced */}
+                <section>
+                    <h3 className="text-lg font-medium mb-4 flex items-center">
+                        <span className="w-5 h-5 mr-2 text-primary">⚡</span>
+                        高级功能
+                    </h3>
+                    <div className="bg-card border border-border/50 rounded-xl overflow-hidden divide-y divide-border/50">
+                        <div className="p-4 flex items-center justify-between">
+                            <div>
+                                <div className="font-medium">更新 GeoIP 数据库</div>
+                                <div className="text-sm text-muted-foreground">更新 IP 地理位置数据库</div>
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    const result = await window.ipcRenderer.invoke('geo:update', 'geoip')
+                                    if (result.success) {
+                                        alert('GeoIP 更新成功！')
+                                    } else {
+                                        alert(`更新失败: ${result.error}`)
+                                    }
+                                }}
+                                className="px-4 py-1.5 rounded-lg bg-secondary text-sm font-medium hover:opacity-80 transition-opacity"
+                            >
+                                更新
+                            </button>
+                        </div>
+                        <div className="p-4 flex items-center justify-between">
+                            <div>
+                                <div className="font-medium">更新 GeoSite 数据库</div>
+                                <div className="text-sm text-muted-foreground">更新域名分流规则数据库</div>
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    const result = await window.ipcRenderer.invoke('geo:update', 'geosite')
+                                    if (result.success) {
+                                        alert('GeoSite 更新成功！')
+                                    } else {
+                                        alert(`更新失败: ${result.error}`)
+                                    }
+                                }}
+                                className="px-4 py-1.5 rounded-lg bg-secondary text-sm font-medium hover:opacity-80 transition-opacity"
+                            >
+                                更新
+                            </button>
+                        </div>
+                        <div className="p-4 flex items-center justify-between">
+                            <div>
+                                <div className="font-medium">清除 DNS 缓存</div>
+                                <div className="text-sm text-muted-foreground">清除内核的 DNS 解析缓存</div>
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    const result = await window.ipcRenderer.invoke('dns:flush')
+                                    if (result.success) {
+                                        alert('DNS 缓存已清除！')
+                                    } else {
+                                        alert('清除失败')
+                                    }
+                                }}
+                                className="px-4 py-1.5 rounded-lg bg-secondary text-sm font-medium hover:opacity-80 transition-opacity"
+                            >
+                                清除
+                            </button>
+                        </div>
+                        <div className="p-4 flex items-center justify-between">
+                            <div>
+                                <div className="font-medium">重启内核</div>
+                                <div className="text-sm text-muted-foreground">重新启动 Mihomo 内核进程</div>
+                            </div>
+                            <button
+                                onClick={async () => {
+                                    if (confirm('确定要重启内核吗？')) {
+                                        await window.ipcRenderer.invoke('core:restart')
+                                        alert('内核正在重启...')
+                                    }
+                                }}
+                                className="px-4 py-1.5 rounded-lg bg-destructive/20 text-destructive text-sm font-medium hover:bg-destructive/30 transition-colors"
+                            >
+                                重启
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
                 <div className="pt-4 text-center">
-                    <span className="text-xs text-muted-foreground opacity-50">NewClash v2.0.0 • Built with ❤️</span>
+                    <span className="text-xs text-muted-foreground opacity-50">NewClash v2.1.0 • Built with ❤️</span>
                 </div>
             </div>
         </motion.div>

@@ -600,4 +600,114 @@ export class KernelManager {
             return true;
         }
     }
+
+    // --- Advanced API Methods (Phase 3+) ---
+
+    // GeoIP/GeoSite Update
+    async updateGeoData(type: 'geoip' | 'geosite'): Promise<{ success: boolean; error?: string }> {
+        try {
+            const api = await this.getAxios();
+            await api.post(`/configs/geo`, null, {
+                params: { [type]: true },
+                timeout: 60000 // GEO files can be large
+            });
+            return { success: true };
+        } catch (e: any) {
+            console.error(`[Kernel] Failed to update ${type}:`, e.message);
+            return { success: false, error: e.message };
+        }
+    }
+
+    // Get Providers
+    async getProxyProviders(): Promise<any> {
+        try {
+            const api = await this.getAxios();
+            return await api.get('/providers/proxies');
+        } catch (e) {
+            return { providers: {} };
+        }
+    }
+
+    async getRuleProviders(): Promise<any> {
+        try {
+            const api = await this.getAxios();
+            return await api.get('/providers/rules');
+        } catch (e) {
+            return { providers: {} };
+        }
+    }
+
+    // Update Provider
+    async updateProxyProvider(name: string): Promise<{ success: boolean; error?: string }> {
+        try {
+            const api = await this.getAxios();
+            await api.put(`/providers/proxies/${encodeURIComponent(name)}`, null, {
+                timeout: 30000
+            });
+            return { success: true };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    }
+
+    async updateRuleProvider(name: string): Promise<{ success: boolean; error?: string }> {
+        try {
+            const api = await this.getAxios();
+            await api.put(`/providers/rules/${encodeURIComponent(name)}`, null, {
+                timeout: 30000
+            });
+            return { success: true };
+        } catch (e: any) {
+            return { success: false, error: e.message };
+        }
+    }
+
+    // Group Delay Test (Batch)
+    async testGroupDelay(group: string, url?: string): Promise<{ [name: string]: number }> {
+        try {
+            const api = await this.getAxios();
+            const res: any = await api.get(`/group/${encodeURIComponent(group)}/delay`, {
+                params: {
+                    timeout: 5000,
+                    url: url || 'http://www.gstatic.com/generate_204'
+                },
+                timeout: 30000 // Allow time for all proxies
+            });
+            return res;
+        } catch (e) {
+            return {};
+        }
+    }
+
+    // Get Rules
+    async getRules(): Promise<any[]> {
+        try {
+            const api = await this.getAxios();
+            const res: any = await api.get('/rules');
+            return res.rules || [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    // Flush DNS Cache
+    async flushDns(): Promise<{ success: boolean }> {
+        try {
+            const api = await this.getAxios();
+            await api.post('/dns/flush');
+            return { success: true };
+        } catch (e) {
+            return { success: false };
+        }
+    }
+
+    // Restart Core
+    async restart(): Promise<void> {
+        try {
+            const api = await this.getAxios();
+            await api.post('/restart');
+        } catch (e) {
+            // Restart will break connection, ignore error
+        }
+    }
 }
