@@ -16,7 +16,7 @@ function SimpleSwitch({ checked, onCheckedChange }: { checked: boolean; onChecke
 
 export default function Settings() {
     const [settings, setSettings] = useState({
-        mixedPort: 7890,
+        mixedPort: 7892,
         allowLan: false,
         theme: 'dark',
         systemProxy: false,
@@ -144,7 +144,7 @@ export default function Settings() {
                 </section>
 
                 <div className="pt-4 text-center">
-                    <span className="text-xs text-muted-foreground opacity-50">NewClash v1.4.3 • Built with ❤️</span>
+                    <span className="text-xs text-muted-foreground opacity-50">NewClash v1.4.4 • Built with ❤️</span>
                 </div>
             </div>
         </motion.div>

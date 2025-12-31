@@ -43,7 +43,7 @@ export class StoreManager {
                 profiles: [],
                 settings: {
                     theme: 'dark',
-                    mixedPort: 7890,
+                    mixedPort: 7892,
                     allowLan: false,
                     systemProxy: false,
                     tunMode: false,
@@ -96,11 +96,11 @@ export class StoreManager {
                     const settings = this.getSettings();
 
                     // Always enforce our standard controller port so the UI can connect
-                    config['external-controller'] = '127.0.0.1:9090';
+                    config['external-controller'] = '127.0.0.1:9092';
                     dirty = true;
 
                     if (!config['mixed-port'] && !config['port']) {
-                        config['mixed-port'] = settings.mixedPort || 7890;
+                        config['mixed-port'] = settings.mixedPort || 7892;
                         dirty = true;
                     }
                     if (config['allow-lan'] === undefined) {
@@ -183,7 +183,7 @@ export class StoreManager {
                     if (config && typeof config === 'object') {
                         let dirty = false;
                         if (!config['external-controller']) {
-                            config['external-controller'] = '127.0.0.1:9090';
+                            config['external-controller'] = '127.0.0.1:9092';
                             dirty = true;
                         }
                         if (dirty) {
@@ -310,9 +310,9 @@ export class StoreManager {
             const config: any = yaml.load(content) || {};
 
             // Inject standard settings
-            config['external-controller'] = '127.0.0.1:9090';
+            config['external-controller'] = '127.0.0.1:9092';
             if (!config['mixed-port'] && !config['port']) {
-                config['mixed-port'] = settings.mixedPort || 7890;
+                config['mixed-port'] = settings.mixedPort || 7892;
             }
             if (config['allow-lan'] === undefined) {
                 config['allow-lan'] = settings.allowLan;

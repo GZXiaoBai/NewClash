@@ -10,7 +10,7 @@ const sudo = require('sudo-prompt');
 export class KernelManager {
     private process: ChildProcess | null = null;
     private webContents: any;
-    private port = 9090;
+    private port = 9092;
     private secret = '';
     private isElevated = false;
     private logFile = path.join(app.getPath('temp'), 'newclash-kernel.log');
@@ -308,13 +308,13 @@ export class KernelManager {
     private async cleanupPorts() {
         // Aggressive cleanup
         if (process.platform === 'darwin') {
-            const killCmd = "lsof -P -i:9090 -i:7890 | grep LISTEN | awk '{print $2}' | xargs kill -9";
+            const killCmd = "lsof -P -i:9092 -i:7892 | grep LISTEN | awk '{print $2}' | xargs kill -9";
             try {
                 const { execSync } = require('child_process');
                 execSync(killCmd, { stdio: 'ignore' });
             } catch (e) {
                 // Try elevated kill (osascript)
-                const script = `do shell script "lsof -P -i:9090 -i:7890 | grep LISTEN | awk '{print $2}' | xargs kill -9" with administrator privileges`;
+                const script = `do shell script "lsof -P -i:9092 -i:7892 | grep LISTEN | awk '{print $2}' | xargs kill -9" with administrator privileges`;
                 try {
                     const { execSync } = require('child_process');
                     execSync(`osascript -e '${script}'`);
