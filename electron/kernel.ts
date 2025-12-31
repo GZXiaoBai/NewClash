@@ -89,6 +89,15 @@ export class KernelManager {
             return;
         }
 
+        // Grant execute permissions (Critical for macOS/Linux)
+        if (process.platform !== 'win32') {
+            try {
+                fs.chmodSync(binPath, 0o755);
+            } catch (e) {
+                console.error('[Kernel] Failed to set permissions:', e);
+            }
+        }
+
         // Arguments
         // If configPath is provided, use its directory as CWD. 
         // If NOT provided, use userData directly (don't name dirname on it, it is a dir).
