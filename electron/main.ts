@@ -117,7 +117,7 @@ function registerIpcHandlers() {
 
         // Handle Side Effects
         if (data.systemProxy !== undefined) {
-            setSystemProxy(data.systemProxy, newSettings?.mixedPort || 7890);
+            setSystemProxy(data.systemProxy, newSettings?.mixedPort || 7892);
         }
 
         // TUN Mode: regenerate config and reload kernel
