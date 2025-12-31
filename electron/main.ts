@@ -41,8 +41,17 @@ function createWindow() {
     kernel = new KernelManager(win.webContents)
     store = new StoreManager()
 
-    // Start Kernel (Will try to find binary)
-    kernel.start()
+    // Start Kernel WITH active profile config (CRITICAL FIX)
+    // Without a config, the kernel has no proxies/rules and cannot route traffic!
+    const profiles = store.getProfiles()
+    const activeProfile = profiles.find(p => p.active)
+    if (activeProfile?.localPath) {
+        console.log('[Main] Starting kernel with active profile:', activeProfile.localPath)
+        kernel.start(activeProfile.localPath)
+    } else {
+        console.log('[Main] No active profile found, starting kernel without config')
+        kernel.start()
+    }
 
     // --- IPC Handlers ---
 

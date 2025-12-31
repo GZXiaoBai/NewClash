@@ -56,13 +56,20 @@ export async function setSystemProxy(enable: boolean, port: number) {
             console.log(`Detected active service: ${activeService} (Device: ${activeInterface})`);
 
             if (enable) {
+                // Enable HTTP/HTTPS proxies AND set port (must do both)
                 await execAsync(`networksetup -setwebproxy "${activeService}" 127.0.0.1 ${port}`);
+                await execAsync(`networksetup -setwebproxystate "${activeService}" on`);
                 await execAsync(`networksetup -setsecurewebproxy "${activeService}" 127.0.0.1 ${port}`);
+                await execAsync(`networksetup -setsecurewebproxystate "${activeService}" on`);
+                // SOCKS5 proxy (same port for mixed-port mode)
                 await execAsync(`networksetup -setsocksfirewallproxy "${activeService}" 127.0.0.1 ${port}`);
+                await execAsync(`networksetup -setsocksfirewallproxystate "${activeService}" on`);
+                console.log(`[SystemProxy] Enabled for ${activeService} on port ${port}`);
             } else {
                 await execAsync(`networksetup -setwebproxystate "${activeService}" off`);
                 await execAsync(`networksetup -setsecurewebproxystate "${activeService}" off`);
                 await execAsync(`networksetup -setsocksfirewallproxystate "${activeService}" off`);
+                console.log(`[SystemProxy] Disabled for ${activeService}`);
             }
         } catch (e) {
             console.error('Failed to set macOS system proxy:', e);
