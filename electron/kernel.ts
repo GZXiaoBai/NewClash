@@ -38,18 +38,44 @@ export class KernelManager {
         if (process.platform === 'darwin') {
             try {
                 // Kill process listening on 9090 (API) and 7890 (Mixed)
-                // Using lsof and awk to find PID, then kill
-                // Fail silently/continue if empty
                 const { exec } = require('child_process');
                 const killCmd = "lsof -P -i:9090 -i:7890 | grep LISTEN | awk '{print $2}' | xargs kill -9";
                 exec(killCmd, (err: any) => {
-                    // ignore error (e.g. no process found)
+                    // ignore error
                 });
-                // Wait a bit
                 await new Promise(r => setTimeout(r, 500));
-            } catch (e) {
-                // ignore
-            }
+            } catch (e) { }
+        } else if (process.platform === 'win32') {
+            try {
+                const { exec } = require('child_process');
+                // Find and Kill process on 9090
+                const findAndKill = (port: number) => {
+                    return new Promise<void>((resolve) => {
+                        exec(`netstat -ano | findstr :${port}`, (err: any, stdout: string) => {
+                            if (err || !stdout) { resolve(); return; }
+
+                            // Parse output lines to find PIDs
+                            // TCP    0.0.0.0:9090           0.0.0.0:0              LISTENING       1234
+                            const lines = stdout.split('\n');
+                            lines.forEach(line => {
+                                const parts = line.trim().split(/\s+/);
+                                const pid = parts[parts.length - 1];
+                                if (pid && /^\d+$/.test(pid)) {
+                                    try {
+                                        process.kill(parseInt(pid), 9); // or taskkill
+                                        // exec(`taskkill /F /PID ${pid}`, () => {});
+                                    } catch (e) { }
+                                }
+                            });
+                            resolve();
+                        });
+                    });
+                }
+
+                await findAndKill(9090);
+                await findAndKill(7890);
+                await new Promise(r => setTimeout(r, 500));
+            } catch (e) { }
         }
     }
 
