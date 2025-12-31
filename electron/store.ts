@@ -116,14 +116,33 @@ export class StoreManager {
                             };
                             dirty = true;
                         }
-                        // Ensure DNS is appropriate for TUN
-                        if (!config['dns']) {
-                            config['dns'] = {
-                                enable: true,
-                                listen: '0.0.0.0:1053',
-                                'enhanced-mode': 'fake-ip',
-                                nameserver: ['8.8.8.8', '1.1.1.1']
-                            };
+
+                        // Enforce DNS for TUN
+                        // TUN mode requires DNS to be enabled and ideally fake-ip for best performance/compat
+                        if (!config['dns']) config['dns'] = {};
+
+                        // Force enable and basic settings if not present or to ensure compatibility
+                        if (!config['dns']['enable']) {
+                            config['dns']['enable'] = true;
+                            dirty = true;
+                        }
+                        if (!config['dns']['enhanced-mode']) {
+                            config['dns']['enhanced-mode'] = 'fake-ip';
+                            dirty = true;
+                        }
+                        if (!config['dns']['listen']) {
+                            config['dns']['listen'] = '0.0.0.0:1053';
+                            dirty = true;
+                        }
+                        // Ensure at least one nameserver
+                        if (!config['dns']['nameserver'] || config['dns']['nameserver'].length === 0) {
+                            config['dns']['nameserver'] = ['8.8.8.8', '1.1.1.1', 'https://dns.google/dns-query'];
+                            dirty = true;
+                        }
+
+                        // Fake-IP range if missing
+                        if (config['dns']['enhanced-mode'] === 'fake-ip' && !config['dns']['fake-ip-range']) {
+                            config['dns']['fake-ip-range'] = '198.18.0.1/16';
                             dirty = true;
                         }
                     }

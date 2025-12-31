@@ -10,18 +10,59 @@ export async function setSystemProxy(enable: boolean, port: number) {
 
     if (platform === 'darwin') {
         try {
-            for (const service of SERVICES) {
-                if (enable) {
-                    // console.log(`Setting proxy for ${service} to 127.0.0.1:${port}`);
-                    await execAsync(`networksetup -setwebproxy "${service}" 127.0.0.1 ${port}`);
-                    await execAsync(`networksetup -setsecurewebproxy "${service}" 127.0.0.1 ${port}`);
-                    await execAsync(`networksetup -setsocksfirewallproxy "${service}" 127.0.0.1 ${port}`);
-                } else {
-                    // console.log(`Disabling proxy for ${service}`);
-                    await execAsync(`networksetup -setwebproxystate "${service}" off`);
-                    await execAsync(`networksetup -setsecurewebproxystate "${service}" off`);
-                    await execAsync(`networksetup -setsocksfirewallproxystate "${service}" off`);
+            // macOS: Dynamically find the active service (the one with the default route)
+            // 1. Get default interface (e.g., en0)
+            const { stdout: routeOut } = await execAsync('route get default | grep interface');
+            const interfaceMatch = routeOut.match(/interface:\s+(\w+)/);
+            if (!interfaceMatch) {
+                console.error('Could not find default interface');
+                return;
+            }
+            const activeInterface = interfaceMatch[1];
+
+            // 2. Map interface to Service Name (e.g., en0 -> Wi-Fi)
+            const { stdout: portsOut } = await execAsync('networksetup -listallhardwareports');
+            // Output format:
+            // Hardware Port: Wi-Fi
+            // Device: en0
+            // ...
+            const parts = portsOut.split('Hardware Port: ');
+            let activeService = '';
+            for (const part of parts) {
+                if (part.includes(`Device: ${activeInterface}`)) {
+                    activeService = part.split('\n')[0].trim();
+                    break;
                 }
+            }
+
+            if (!activeService) {
+                console.log(`Could not map interface ${activeInterface} to a service name, trying fallback list.`);
+                // Fallback to iterating common names if detection fails
+                const FALLBACK_SERVICES = ['Wi-Fi', 'Ethernet', 'USB 10/100/1000 LAN', 'Thunderbolt Bridge'];
+                for (const service of FALLBACK_SERVICES) {
+                    if (enable) {
+                        await execAsync(`networksetup -setwebproxy "${service}" 127.0.0.1 ${port}`);
+                        await execAsync(`networksetup -setsecurewebproxy "${service}" 127.0.0.1 ${port}`);
+                        await execAsync(`networksetup -setsocksfirewallproxy "${service}" 127.0.0.1 ${port}`);
+                    } else {
+                        await execAsync(`networksetup -setwebproxystate "${service}" off`);
+                        await execAsync(`networksetup -setsecurewebproxystate "${service}" off`);
+                        await execAsync(`networksetup -setsocksfirewallproxystate "${service}" off`);
+                    }
+                }
+                return;
+            }
+
+            console.log(`Detected active service: ${activeService} (Device: ${activeInterface})`);
+
+            if (enable) {
+                await execAsync(`networksetup -setwebproxy "${activeService}" 127.0.0.1 ${port}`);
+                await execAsync(`networksetup -setsecurewebproxy "${activeService}" 127.0.0.1 ${port}`);
+                await execAsync(`networksetup -setsocksfirewallproxy "${activeService}" 127.0.0.1 ${port}`);
+            } else {
+                await execAsync(`networksetup -setwebproxystate "${activeService}" off`);
+                await execAsync(`networksetup -setsecurewebproxystate "${activeService}" off`);
+                await execAsync(`networksetup -setsocksfirewallproxystate "${activeService}" off`);
             }
         } catch (e) {
             console.error('Failed to set macOS system proxy:', e);
